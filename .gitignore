@@ -1,0 +1,7 @@
+*.xcodeproj/xcshareddata
+*.xcodeproj/xcuserdata/ethanarbuckle.xcuserdatad/xcschemes/xcschememanagement.plist
+*.xcodeproj/xcuserdata
+.theos/
+xcuserdata
+/packages
+/.vscode

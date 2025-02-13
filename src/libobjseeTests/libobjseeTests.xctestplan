@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "FD8479FC-1A51-47E4-A320-380168651C8B",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "uiTestingScreenshotsLifetime" : "keepNever"
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:objsee.xcodeproj",
+        "identifier" : "5FF9EFE52D3321A000BCFBA9",
+        "name" : "libobjseeTests"
+      }
+    }
+  ],
+  "version" : 1
+}

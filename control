@@ -1,0 +1,9 @@
+Package: com.ethanarbuckle.objsee-framework
+Name: objsee
+Version: 0.0.1
+Architecture: iphoneos-arm64
+Description: objc_msgSend tracing framework
+Maintainer: Ethan Arbuckle
+Author: Ethan Arbuckle
+Section: System
+Tag: role::developer
