@@ -34,6 +34,8 @@ pid_t pid_from_hint(const char *hint) {
 
 int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_config_t *config) {
     memset(options, 0, sizeof(cli_options_t));
+    options->argc = argc;
+    options->argv = argv;
     
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-h") == 0) {
@@ -113,10 +115,20 @@ int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_c
             continue;
         }
         
-        if (!options->bundle_id && argv[i][0] != '-') {
+        if ((options->file_path == NULL || options->bundle_id == NULL) && argv[i][0] != '-') {
+            if (options->file_path == NULL && access(argv[i], F_OK) != -1) {
+                options->file_path = argv[i];
+                continue;
+            }
+            
             options->bundle_id = argv[i];
         }
         else {
+            // Allow arbitrary args if we're launching an executable
+            if (options->file_path != NULL) {
+                continue;
+            }
+            
             printf("Error: Unexpected argument '%s'\n", argv[i]);
             return -1;
         }
@@ -146,7 +158,7 @@ int apply_defaults_to_config(tracer_config_t *config) {
         .variable_separator_spacing = true,
         .static_separator_spacing = 2,
         .include_newline_in_formatted_trace = false,
-        .args = TRACER_ARG_FORMAT_DESCRIPTIVE,
+        .args = TRACER_ARG_FORMAT_DESCRIPTIVE_COMPACT,
     };
     
     return 0;

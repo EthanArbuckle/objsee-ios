@@ -10,7 +10,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <dlfcn.h>
+#include <spawn.h>
+#include "dylib_injector.h"
 #include "app_launching.h"
+#include "config_encode.h"
 
 
 kern_return_t launch_app_with_encoded_tracer_config(NSString *bundleID, NSString *configString) {
@@ -118,4 +121,64 @@ int find_free_socket_port(void) {
     
     close(socket_fd);
     return free_port;
+}
+
+kern_return_t spawn_process(cli_options_t *options, tracer_config_t config) {
+    if (options == NULL || options->file_path == NULL) {
+        return KERN_INVALID_ARGUMENT;
+    }
+
+    char *config_string = NULL;
+    if (encode_tracer_config(&config, &config_string) != TRACER_SUCCESS) {
+        printf("Failed to encode libobjsee config\n");
+        return KERN_FAILURE;
+    }
+
+    size_t config_len = strlen(config_string);
+    size_t dylib_len = strlen(OBJSEE_LIBRARY_PATH);
+    char *dyld_insert_env = malloc(dylib_len + sizeof("DYLD_INSERT_LIBRARIES=") + 1);
+    char *objsee_config_env = malloc(config_len + sizeof("OBJSEE_CONFIG=") + 1);
+    if (dyld_insert_env == NULL || objsee_config_env == NULL) {
+        free(dyld_insert_env);
+        free(objsee_config_env);
+        return KERN_RESOURCE_SHORTAGE;
+    }
+    
+    sprintf(dyld_insert_env, "DYLD_INSERT_LIBRARIES=%s", OBJSEE_LIBRARY_PATH);
+    sprintf(objsee_config_env, "OBJSEE_CONFIG=%s", config_string);
+    char **envp = (char *[]){dyld_insert_env, objsee_config_env, NULL};
+    char **child_argv = malloc(sizeof(char *) * (options->argc));
+    if (child_argv == NULL) {
+        free(dyld_insert_env);
+        free(objsee_config_env);
+        return KERN_RESOURCE_SHORTAGE;
+    }
+    
+    child_argv[0] = (char *)options->file_path;
+    size_t arg_idx = 1;
+    for (int i = 2; i < options->argc && arg_idx < options->argc - 1; i++) {
+        child_argv[arg_idx++] = options->argv[i];
+    }
+    child_argv[arg_idx] = NULL;
+    
+    posix_spawnattr_t attr;
+    posix_spawnattr_init(&attr);
+    posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED);
+    int ret = posix_spawn(&options->pid, options->file_path, NULL, &attr, child_argv, envp);
+    
+    posix_spawnattr_destroy(&attr);
+    free(dyld_insert_env);
+    free(objsee_config_env);
+    free(child_argv);
+    
+    if (ret != 0) {
+        return KERN_FAILURE;
+    }
+    
+    kill(options->pid, SIGCONT);
+    
+    int status;
+    waitpid(options->pid, &status, 0);
+
+    return KERN_SUCCESS;
 }

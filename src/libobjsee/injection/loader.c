@@ -10,7 +10,6 @@
 #include "config_decode.h"
 
 OBJC_EXPORT void objsee_main(const char *encoded_config_string) {
-    os_log(OS_LOG_DEFAULT, "Loading libobjsee tracer with encoded config: %s", encoded_config_string);
     
     tracer_config_t config;
     if (encoded_config_string) {
@@ -20,15 +19,16 @@ OBJC_EXPORT void objsee_main(const char *encoded_config_string) {
         }
         
         const char *config_description = copy_human_readable_config(config);
-        if (config_description) {
-            os_log(OS_LOG_DEFAULT, "objsee config: %s", config_description);
-            free((void *)config_description);
+        if (config_description == NULL) {
+            os_log(OS_LOG_DEFAULT, "Failed to encode config description");
+            return;
         }
-        else {
-            os_log(OS_LOG_DEFAULT, "Config issue");
-        }
+        
+        os_log(OS_LOG_DEFAULT, "Using config: %{PUBLIC}s", config_description);
+        free((void *)config_description);
     }
     else {
+        os_log(OS_LOG_DEFAULT, "No config provided, using defaults");
         config = (tracer_config_t) {
             .transport = TRACER_TRANSPORT_STDOUT,
         };
@@ -56,6 +56,13 @@ OBJC_EXPORT void objsee_main(const char *encoded_config_string) {
         os_log(OS_LOG_DEFAULT, "Failed to create tracer: %s", error->message);
         free_error(error);
         return;
+    }
+    
+    if (config.transport_config.host && config.transport_config.port) {
+        tracer_set_output_socket(tracer, config.transport_config.host, config.transport_config.port);
+    }
+    else if (config.transport_config.file_path) {
+        tracer_set_output_file(tracer, config.transport_config.file_path);
     }
     
     for (size_t i = 0; i < config.filter_count; i++) {

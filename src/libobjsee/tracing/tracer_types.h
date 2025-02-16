@@ -119,6 +119,7 @@ typedef struct {
 } tracer_transport_config_t;
 
 typedef struct tracer_event_t {
+    const char *formatted_output;
     const char *class_name;
     const char *method_name;
     bool is_class_method;

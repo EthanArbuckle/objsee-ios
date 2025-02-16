@@ -18,7 +18,7 @@ void objsee_main(const char *encoded_config_string) {
     os_log(OS_LOG_DEFAULT, "Loading libobjsee tracer with encoded config");
     
     config = (tracer_config_t) {
-        .transport = TRACER_TRANSPORT_STDOUT,
+        .transport = TRACER_TRANSPORT_SOCKET,
         .format = (tracer_format_options_t) {
             .include_colors = false,
             .include_formatted_trace = true,

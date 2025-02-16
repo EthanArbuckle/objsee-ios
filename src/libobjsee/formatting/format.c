@@ -53,7 +53,7 @@ static inline kern_return_t fast_write_color(char **ptr, const char *end, uint8_
     return fast_append(ptr, end, "\033[38;5;%dm", color);
 }
 
-static char *format_binary_data(const char *data, size_t size) {
+__unused static char *format_binary_data(const char *data, size_t size) {
     static __thread char hex_buffer[STATIC_BUFFER_SIZE];
     size_t display_size = size > 16 ? 16 : size;
     
@@ -148,9 +148,9 @@ const char *build_formatted_event_str(const tracer_event_t *event, tracer_format
     
     // Indentation
     if (format.include_indents) {
-        uint8_t depth_color = format.include_colors ? COLOR_DEPTH_START + (event->real_depth % (COLOR_DEPTH_END - COLOR_DEPTH_START)) : 0;
+        uint8_t depth_color = format.include_colors ? COLOR_DEPTH_START + (event->trace_depth % (COLOR_DEPTH_END - COLOR_DEPTH_START)) : 0;
         
-        for (uint32_t i = 0; i < event->real_depth; i++) {
+        for (uint32_t i = 0; i < event->trace_depth; i++) {
             uint32_t spaces = format.variable_separator_spacing ? spaces_between_indent_level(i) : format.static_separator_spacing;
             
             for (uint32_t j = 0; j < spaces; j++) {
@@ -178,7 +178,7 @@ const char *build_formatted_event_str(const tracer_event_t *event, tracer_format
             }
         }
         
-        if (event->real_depth > 0) {
+        if (event->trace_depth > 0) {
             if (fast_append(&ptr, end, format.indent_char) != KERN_SUCCESS) {
                 return NULL;
             }

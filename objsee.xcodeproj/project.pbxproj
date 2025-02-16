@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5F34BF882D01AF9C0076EB3C /* tracer_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F34BF872D01AF980076EB3C /* tracer_types.h */; };
+		5F34BF882D01AF9C0076EB3C /* tracer_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F34BF872D01AF980076EB3C /* tracer_types.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		5F34BF892D01AF9C0076EB3C /* tracer_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F34BF872D01AF980076EB3C /* tracer_types.h */; };
 		5F34BFE12D02B9D00076EB3C /* config_encode.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FCA2A3C2CFD910700D7BB08 /* config_encode.c */; };
 		5F5AC4762D1B1B85000577D3 /* loader.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F5AC4742D1B1B85000577D3 /* loader.c */; };
@@ -558,6 +558,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5F7084952D5E2C7300329B4E /* objc-internal.h in Headers */,
+				5F34BF882D01AF9C0076EB3C /* tracer_types.h in Headers */,
 				5F9EE5A82D5729E000A32B14 /* objc_arg_description.h in Headers */,
 				5FCA29B52CFC496900D7BB08 /* msgSend_hook.h in Headers */,
 				5FCA29B62CFC496900D7BB08 /* rebind.h in Headers */,
@@ -565,7 +566,6 @@
 				5FBAC0582D4FBA1300AF19D8 /* arg_capture.h in Headers */,
 				5FCA29D12CFC4BC300D7BB08 /* tracer_internal.h in Headers */,
 				5FCA29B72CFC496900D7BB08 /* selector_deny_list.h in Headers */,
-				5F34BF882D01AF9C0076EB3C /* tracer_types.h in Headers */,
 				5FF45BE82D333EC50073F42E /* hashtable.h in Headers */,
 				5FF45BE92D333EC50073F42E /* highlight.h in Headers */,
 				5FCA2A492CFD910D00D7BB08 /* color_utils.h in Headers */,

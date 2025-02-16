@@ -9,6 +9,7 @@
 #define app_launching_h
 
 #include <CoreFoundation/CoreFoundation.h>
+#include "cli_args.h"
 
 extern const char *OBJSEE_LIBRARY_PATH;
 
@@ -38,5 +39,14 @@ void on_process_launch(NSString *bundleID, void (^completion)(pid_t pid));
  * @return The port number
  */
 int find_free_socket_port(void);
+
+/**
+ * Spawns a process with a given config string
+ * @param options The CLI options
+ * @param config The tracer config
+ * @return KERN_SUCCESS on success, an error code on failure
+ */
+kern_return_t spawn_process(cli_options_t *options, tracer_config_t config);
+
 
 #endif /* app_launching_h */

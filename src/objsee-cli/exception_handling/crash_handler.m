@@ -502,9 +502,9 @@ void setup_exception_handler_on_process(pid_t traced_app_pid) {
 
     mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &g_state.exception_port);
     mach_port_insert_right(mach_task_self(), g_state.exception_port, g_state.exception_port, MACH_MSG_TYPE_MAKE_SEND);
-//    task_set_exception_ports(g_state.traced_app_task, EXC_MASK_ALL, g_state.exception_port, EXCEPTION_STATE | MACH_EXCEPTION_CODES, ARM_THREAD_STATE64);
-//    
-//    pthread_t exception_thread;
-//    pthread_create(&exception_thread, NULL, exception_handler, NULL);
-//    pthread_detach(exception_thread);
+    task_set_exception_ports(g_state.traced_app_task, EXC_MASK_ALL, g_state.exception_port, EXCEPTION_STATE | MACH_EXCEPTION_CODES, ARM_THREAD_STATE64);
+
+    pthread_t exception_thread;
+    pthread_create(&exception_thread, NULL, exception_handler, NULL);
+    pthread_detach(exception_thread);
 }

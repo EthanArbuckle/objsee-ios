@@ -134,9 +134,9 @@ static tracer_result_t init_socket_transport(tracer_t *tracer, const tracer_tran
         }
                 
         if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-            os_log(OS_LOG_DEFAULT, "Connection attempt %d failed: %s", i + 1, strerror(errno));
+            os_log(OS_LOG_DEFAULT, "Connection attempt %d failed: %s (host: %s, port: %d)", i + 1, strerror(errno), config->host, config->port);
             close(sockfd);
-            usleep((RETRY_BASE_DELAY_MS * 1000) * (1 << i));
+            sleep(1);
             continue;
         }
         

@@ -7,7 +7,7 @@
 
 #include "tracer_internal.h"
 
-void tracer_handle_event(tracer_t *tracer, const tracer_event_t *event);
+void tracer_handle_event(tracer_t *tracer, tracer_event_t *event);
 
 void cleanup_event_handler(void);
 tracer_result_t init_event_handler(tracer_t *tracer);

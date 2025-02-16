@@ -13,12 +13,15 @@
 
 typedef struct {
     const char *bundle_id;
+    const char *file_path;
     pid_t pid;
     bool tui_mode;
     bool show_help;
     bool show_version;
     bool no_color;
     bool run_in_simulator;
+    int argc;
+    char **argv;
 } cli_options_t;
 
 /**

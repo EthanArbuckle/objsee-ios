@@ -94,7 +94,7 @@ static void return_buffer_to_pool(char *buffer) {
     pthread_mutex_unlock(&pool->lock);
 }
 
-void tracer_handle_event(tracer_t *tracer, const tracer_event_t *event) {
+void tracer_handle_event(tracer_t *tracer, tracer_event_t *event) {
     if (tracer == NULL) {
         return;
     }
@@ -131,6 +131,8 @@ void tracer_handle_event(tracer_t *tracer, const tracer_event_t *event) {
             tracer_set_error(tracer, "Failed to build formatted string for an event");
             return;
         }
+        
+        event->formatted_output = strdup(event_transport_output);
     }
     else if (format.output_as_json) {
         // Json is enabled. Build the json string for the event, then write it to the transport.

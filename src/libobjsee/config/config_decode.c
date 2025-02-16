@@ -224,44 +224,41 @@ const char *copy_human_readable_config(tracer_config_t config) {
     }
     
     int offset = 0;
-    offset += snprintf(formatted + offset, 1024 - offset, "Transport: %d\n", config.transport);
+    offset += snprintf(formatted + offset, 1024 - offset, "Transport: %d, ", config.transport);
     if (config.transport == TRACER_TRANSPORT_SOCKET) {
-        offset += snprintf(formatted + offset, 1024 - offset, "Host: %s\n", config.transport_config.host);
-        offset += snprintf(formatted + offset, 1024 - offset, "Port: %d\n", config.transport_config.port);
+        offset += snprintf(formatted + offset, 1024 - offset, "Host: %s, ", config.transport_config.host);
+        offset += snprintf(formatted + offset, 1024 - offset, "Port: %d, ", config.transport_config.port);
     }
     else if (config.transport == TRACER_TRANSPORT_FILE) {
-        offset += snprintf(formatted + offset, 1024 - offset, "File: %s\n", config.transport_config.file_path);
+        offset += snprintf(formatted + offset, 1024 - offset, "File: %s, ", config.transport_config.file_path);
     }
     else if (config.transport == TRACER_TRANSPORT_CUSTOM) {
-        offset += snprintf(formatted + offset, 1024 - offset, "Custom transport\n");
+        offset += snprintf(formatted + offset, 1024 - offset, "Custom transport, ");
     }
     else {
-        offset += snprintf(formatted + offset, 1024 - offset, "Stdout transport\n");
+        offset += snprintf(formatted + offset, 1024 - offset, "Stdout transport, ");
     }
     
-    offset += snprintf(formatted + offset, 1024 - offset, "Format:\n");
-    offset += snprintf(formatted + offset, 1024 - offset, "Include formatted trace: %d\n", config.format.include_formatted_trace);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include event json: %d\n", config.format.include_event_json);
-    offset += snprintf(formatted + offset, 1024 - offset, "Output as json: %d\n", config.format.output_as_json);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include colors: %d\n", config.format.include_colors);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include thread id: %d\n", config.format.include_thread_id);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include indents: %d\n", config.format.include_indents);
-    offset += snprintf(formatted + offset, 1024 - offset, "Indent char: %s\n", config.format.indent_char);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include indent separators: %d\n", config.format.include_indent_separators);
-    offset += snprintf(formatted + offset, 1024 - offset, "Indent separator char: %s\n", config.format.indent_separator_char);
-    offset += snprintf(formatted + offset, 1024 - offset, "Variable separator spacing: %d\n", config.format.variable_separator_spacing);
-    offset += snprintf(formatted + offset, 1024 - offset, "Static separator spacing: %d\n", config.format.static_separator_spacing);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include newline in formatted trace: %d\n", config.format.include_newline_in_formatted_trace);
-    offset += snprintf(formatted + offset, 1024 - offset, "Arg format: %d\n", config.format.args);
+    offset += snprintf(formatted + offset, 1024 - offset, "Include formatted trace: %d, ", config.format.include_formatted_trace);
+    offset += snprintf(formatted + offset, 1024 - offset, "Include event json: %d, ", config.format.include_event_json);
+    offset += snprintf(formatted + offset, 1024 - offset, "Output as json: %d, ", config.format.output_as_json);
+    offset += snprintf(formatted + offset, 1024 - offset, "Include colors: %d, ", config.format.include_colors);
+    offset += snprintf(formatted + offset, 1024 - offset, "Include thread id: %d, ", config.format.include_thread_id);
+    offset += snprintf(formatted + offset, 1024 - offset, "Include indents: %d, ", config.format.include_indents);
+    offset += snprintf(formatted + offset, 1024 - offset, "Indent char: %s, ", config.format.indent_char);
+    offset += snprintf(formatted + offset, 1024 - offset, "Include indent separators: %d, ", config.format.include_indent_separators);
+    offset += snprintf(formatted + offset, 1024 - offset, "Indent separator: %s, ", config.format.indent_separator_char);
+    offset += snprintf(formatted + offset, 1024 - offset, "Variable separator spacing: %d, ", config.format.variable_separator_spacing);
+    offset += snprintf(formatted + offset, 1024 - offset, "Static separator spacing: %d, ", config.format.static_separator_spacing);
+    offset += snprintf(formatted + offset, 1024 - offset, "Include newline in formatted trace: %d, ", config.format.include_newline_in_formatted_trace);
+    offset += snprintf(formatted + offset, 1024 - offset, "Arg format: %d, ", config.format.args);
     
-    offset += snprintf(formatted + offset, 1024 - offset, "Filters:\n");
     for (int i = 0; i < config.filter_count; i++) {
-        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d:\n", i);
-        offset += snprintf(formatted + offset, 1024 - offset, "Class pattern: %s\n", config.filters[i].class_pattern);
-        offset += snprintf(formatted + offset, 1024 - offset, "Method pattern: %s\n", config.filters[i].method_pattern);
-        offset += snprintf(formatted + offset, 1024 - offset, "Image pattern: %s\n", config.filters[i].image_pattern);
-        offset += snprintf(formatted + offset, 1024 - offset, "Exclude: %d\n", config.filters[i].exclude);
+        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d Class pattern: %s, ", i, config.filters[i].class_pattern);
+        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d Method pattern: %s, ", i, config.filters[i].method_pattern);
+        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d Image pattern: %s, ", i, config.filters[i].image_pattern);
+        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d Exclude: %d\n", i, config.filters[i].exclude);
     }
-    
+        
     return formatted;
 }

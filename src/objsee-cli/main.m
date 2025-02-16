@@ -56,7 +56,6 @@ static kern_return_t locate_objsee_library(void) {
     for (int i = 0; possible_paths[i] != NULL; i++) {
         if (access(possible_paths[i], F_OK) == 0) {
             OBJSEE_LIBRARY_PATH = possible_paths[i];
-            printf("Found libobjsee at path: %s\n", OBJSEE_LIBRARY_PATH);
             return KERN_SUCCESS;
         }
     }
@@ -121,11 +120,21 @@ int main(int argc, char *argv[]) {
             config.format.include_indent_separators = false;
             config.format.include_newline_in_formatted_trace = true;
         }
+        else if (options.file_path) {
+            config.transport = TRACER_TRANSPORT_STDOUT;
+            config.transport_config.host = NULL;
+            config.transport_config.port = 0;
+            config.format.output_as_json = false;
+        }
         
         NSString *bundleID = nil;
-        if ((options.bundle_id == NULL || (bundleID = [NSString stringWithUTF8String:options.bundle_id]) == nil) && options.pid == 0) {
+        if (options.file_path == NULL && (options.bundle_id == NULL || (bundleID = [NSString stringWithUTF8String:options.bundle_id]) == nil) && options.pid == 0) {
             printf("Error: No bundle ID or PID specified\n");
             return 1;
+        }
+        
+        if (options.file_path) {
+            return spawn_process(&options, config);
         }
         
         // Prepare the encoded config. This will be used for both process launches and attachments.
@@ -138,7 +147,7 @@ int main(int argc, char *argv[]) {
         NSString *configString = [NSString stringWithUTF8String:b64_encoded_config];
         free(b64_encoded_config);
         
-        if (options.pid != 0) {
+        if (options.file_path == NULL && options.pid != 0) {
             if (options.run_in_simulator) {
                 printf("Cannot attach to running process in simulator\n");
                 return 1;
