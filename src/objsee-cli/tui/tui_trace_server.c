@@ -613,7 +613,7 @@ int run_tui_trace_server(tracer_config_t *config) {
     };
     
     if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Bind failed");
+        printf("Bind failed\n");
         close(server_fd);
         return 1;
     }

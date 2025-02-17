@@ -7,6 +7,7 @@
 
 
 #include <objc/runtime.h>
+#include <mach/mach.h>
 #include "objc_arg_description.h"
 #include "encoding_description.h"
 #include "tracer_internal.h"
@@ -230,13 +231,22 @@ static kern_return_t _description_for_selector(const tracer_argument_t *arg, tra
     if (arg == NULL || out_buf == NULL || buf_size == 0) {
         return KERN_INVALID_ARGUMENT;
     }
-    
+        
     if (fmt == TRACER_ARG_FORMAT_NONE) {
         out_buf[0] = '\0';
         return KERN_SUCCESS;
     }
     
-    SEL sel = *(SEL *)arg->address;
+    if (arg->address == NULL) {
+        return KERN_INVALID_ADDRESS;
+    }
+    
+    SEL sel = NULL;
+    mach_vm_size_t sel_size = sizeof(SEL);
+    if (mach_vm_read_overwrite(mach_task_self_, (mach_vm_address_t)arg->address, sizeof(SEL), (mach_vm_address_t)&sel, &sel_size) != KERN_SUCCESS || sel_size != sizeof(SEL)) {
+        return KERN_INVALID_ADDRESS;
+    }
+    
     if (sel == NULL) {
         if (strlcpy(out_buf, "@selector(nil)", buf_size) >= buf_size) {
             return KERN_NO_SPACE;
@@ -244,15 +254,13 @@ static kern_return_t _description_for_selector(const tracer_argument_t *arg, tra
         return KERN_SUCCESS;
     }
     
-    const char *sel_name = sel_getName(sel);
-    if (sel_name == NULL) {
-        if (strlcpy(out_buf, "@selector(?)", buf_size) >= buf_size) {
-            return KERN_NO_SPACE;
-        }
-        return KERN_SUCCESS;
+    char sel_name_buf[1024];
+    memset(sel_name_buf, 0, sizeof(sel_name_buf));
+    mach_vm_size_t sizeof_sel_name_buf = sizeof(sel_name_buf);
+    if (mach_vm_read_overwrite(mach_task_self(), (mach_vm_address_t)sel_getName(sel), 1024, (mach_vm_address_t)sel_name_buf, &sizeof_sel_name_buf) != KERN_SUCCESS) {
+        return KERN_INVALID_ADDRESS;
     }
-    
-    if (snprintf(out_buf, buf_size, "@selector(%s)", sel_name) >= buf_size) {
+    if (snprintf(out_buf, buf_size, "@selector(%s)", sel_name_buf) >= buf_size) {
         return KERN_NO_SPACE;
     }
     

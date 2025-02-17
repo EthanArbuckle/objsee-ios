@@ -6,9 +6,9 @@
 //
 #import <XCTest/XCTest.h>
 #import "objc_arg_description.h"
+#import "encoding_description.h"
 #import "arg_description.h"
 #import "tracer_internal.h"
-#import "structs.h"
 
 @interface ArgDescriptionTests : XCTestCase
 @end

@@ -6,7 +6,7 @@
 //
 
 #import <XCTest/XCTest.h>
-#include "structs.h"
+#import "encoding_description.h"
 
 @interface StructDecoderTests : XCTestCase
 @end

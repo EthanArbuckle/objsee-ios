@@ -219,24 +219,50 @@ size_t get_size_of_type_from_type_encoding(const char *type_encoding) {
 }
 
 kern_return_t get_offsets_of_args_using_type_encoding(const char *type_encoding, size_t *offsets, size_t arg_count) {
-    if (type_encoding == NULL) {
+    if (type_encoding == NULL || offsets == NULL) {
         return KERN_FAILURE;
     }
-
+    
     const char *cursor = type_encoding;
-    while (!isdigit(*cursor)) {
-        cursor++;
-    }
-    while (isdigit(*cursor)) {
+    size_t total_size = 0;
+    
+    while (*cursor != '\0' && !isdigit((unsigned char)*cursor)) {
         cursor++;
     }
     
-    for (size_t i = 0; i < arg_count; i++) {
-        while (!isdigit(*cursor)) {
+    if (*cursor == '\0') {
+        return KERN_FAILURE;
+    }
+    
+    total_size = strtol(cursor, (char **)&cursor, 10);
+    if (total_size == 0) {
+        return KERN_FAILURE;
+    }
+    
+    size_t current_offset = 0;
+    size_t arg_index = 0;
+    
+    while (*cursor != '\0' && arg_index < arg_count) {
+        while (*cursor != '\0' && !isdigit((unsigned char)*cursor)) {
             cursor++;
         }
         
-        offsets[i] = strtol(cursor, (char **)&cursor, 10);
+        if (*cursor == '\0') {
+            break;
+        }
+        
+        current_offset = strtol(cursor, (char **)&cursor, 10);
+        if (arg_index < arg_count) {
+            offsets[arg_index++] = current_offset;
+        }
+        
+        while (*cursor != '\0' && isdigit((unsigned char)*cursor)) {
+            cursor++;
+        }
+    }
+    
+    if (arg_index != arg_count) {
+        return KERN_FAILURE;
     }
     
     return KERN_SUCCESS;

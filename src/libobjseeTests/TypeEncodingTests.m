@@ -7,7 +7,7 @@
 
 #import <XCTest/XCTest.h>
 #import <objc/runtime.h>
-#import "basic_types.h"
+#import "encoding_size.h"
 
 @interface TypeEncodingTests : XCTestCase
 @end
@@ -90,6 +90,58 @@
     XCTAssertEqual(get_size_of_type_from_type_encoding("{abc="), 0);
     XCTAssertEqual(get_size_of_type_from_type_encoding("v"), 0);
     XCTAssertEqual(get_size_of_type_from_type_encoding("?"), 0);
+}
+
+- (void)testBasicMethodSignatures {
+    size_t offsets[32] = {0};
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding("#24@0:8q16", offsets, 3), KERN_SUCCESS);
+    XCTAssertEqual(offsets[0], 0);
+    XCTAssertEqual(offsets[1], 8);
+    XCTAssertEqual(offsets[2], 16);
+    
+    memset(offsets, 0, sizeof(offsets));
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding("v24@0:8@16", offsets, 3), KERN_SUCCESS);
+    XCTAssertEqual(offsets[0], 0);
+    XCTAssertEqual(offsets[1], 8);
+    XCTAssertEqual(offsets[2], 16);
+    
+    memset(offsets, 0, sizeof(offsets));
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding("v32@0:8@16Q24", offsets, 4), KERN_SUCCESS);
+    XCTAssertEqual(offsets[0], 0);
+    XCTAssertEqual(offsets[1], 8);
+    XCTAssertEqual(offsets[2], 16);
+    XCTAssertEqual(offsets[3], 24);
+}
+
+- (void)testComplexMethodSignatures {
+    size_t offsets[32] = {0};
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding("v40@0:8@16@24Q32", offsets, 5), KERN_SUCCESS);
+    XCTAssertEqual(offsets[0], 0);
+    XCTAssertEqual(offsets[1], 8);
+    XCTAssertEqual(offsets[2], 16);
+    XCTAssertEqual(offsets[3], 24);
+    XCTAssertEqual(offsets[4], 32);
+    
+    memset(offsets, 0, sizeof(offsets));
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding("@32@0:8@16@24", offsets, 4), KERN_SUCCESS);
+    XCTAssertEqual(offsets[0], 0);
+    XCTAssertEqual(offsets[1], 8);
+    XCTAssertEqual(offsets[2], 16);
+    XCTAssertEqual(offsets[3], 24);
+}
+
+- (void)testMethodSignatureErrors {
+    size_t offsets[32] = {0};
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding(NULL, offsets, 3), KERN_FAILURE);
+    
+    memset(offsets, 0, sizeof(offsets));
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding("v24@0:8@16", NULL, 3), KERN_FAILURE);
+    
+    memset(offsets, 0, sizeof(offsets));
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding("invalid", offsets, 3), KERN_FAILURE);
+    
+    memset(offsets, 0, sizeof(offsets));
+    XCTAssertEqual(get_offsets_of_args_using_type_encoding("v32@0:8@16Q24", offsets, 6), KERN_FAILURE);
 }
 
 - (CGRect)CGRectValue {
