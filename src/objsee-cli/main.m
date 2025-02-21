@@ -40,6 +40,10 @@ static void print_usage(void) {
     printf("  -p <process hint>             Attach to an existing process\n");
     printf("  --nocolor                     Disable color output\n");
     printf("  --sim                         Run the app in iOS Simulator\n\n");
+    printf("  -A0                           Include no arguments\n");
+    printf("  -A1                           Include basic argument detail\n");
+    printf("  -A2                           Include class names in argument detail\n");
+    printf("  -A3                           Include full argument detail\n\n");
     printf("Example: objsee -c \"UIView*\" -m \"*\" com.apple.mobilesafari\n\n");
 }
 

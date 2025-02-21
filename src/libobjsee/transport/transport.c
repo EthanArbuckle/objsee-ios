@@ -227,6 +227,11 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     tracer_result_t result;
     switch (ctx->type) {
         case TRACER_TRANSPORT_SOCKET: {
+            if (config->host == NULL || config->port == 0) {
+                result = TRACER_ERROR_INVALID_ARGUMENT;
+                break;
+            }
+    
             result = init_socket_transport(tracer, config);
             break;
         }

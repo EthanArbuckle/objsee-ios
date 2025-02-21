@@ -5,12 +5,12 @@
 //  Created by Ethan Arbuckle on 1/17/25.
 //
 
-#include "cli_args.h"
 #include <Foundation/Foundation.h>
 #include <dlfcn.h>
 #include "app_launching.h"
+#include "cli_args.h"
 
-pid_t pid_from_hint(const char *hint) {
+static pid_t pid_from_hint(const char *hint) {
     if (hint == NULL) {
         return -1;
     }
@@ -72,6 +72,12 @@ int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_c
         
         if (strcmp(argv[i], "--sim") == 0) {
             options->run_in_simulator = true;
+            continue;
+        }
+        
+        // arg verbosity: -A0, -A1, -A2, -A3
+        if (argv[i][0] == '-' && argv[i][1] == 'A' && argv[i][2] >= '0' && argv[i][2] <= '3') {
+            config->format.args = argv[i][2] - '0';
             continue;
         }
         
@@ -158,7 +164,7 @@ int apply_defaults_to_config(tracer_config_t *config) {
         .variable_separator_spacing = true,
         .static_separator_spacing = 2,
         .include_newline_in_formatted_trace = false,
-        .args = TRACER_ARG_FORMAT_DESCRIPTIVE_COMPACT,
+        .args = TRACER_ARG_FORMAT_NONE,
     };
     
     return 0;

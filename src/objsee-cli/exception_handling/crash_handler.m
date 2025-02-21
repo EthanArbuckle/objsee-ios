@@ -29,8 +29,8 @@
  This info goes through a syntax highlighter then is printed to the console
 */
 
-#define MAX_FRAMES 60
-#define MAX_EXCEPTIONS 1
+#define MAX_FRAMES 128
+#define MAX_EXCEPTIONS 1000
 
 typedef struct {
     const char *name;

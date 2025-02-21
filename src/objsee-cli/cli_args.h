@@ -25,13 +25,6 @@ typedef struct {
 } cli_options_t;
 
 /**
- * Parses a hint string into a PID
- * @param hint The hint to parse. Can be a PID or fuzzy process name
- * @return The PID, or -1 on failure
- */
-pid_t pid_from_hint(const char *hint);
-
-/**
  * Parses CLI arguments into a struct
  * @param argc The number of arguments
  * @param argv The arguments
