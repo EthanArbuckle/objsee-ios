@@ -152,9 +152,10 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
     }
     else {
+        bool is_meta = is_class_method_fast(self_class, _cmd);
         ctx->last_class_cache.cls = self_class;
-        ctx->last_class_cache.name = object_getClassName((id)self_class);
-        ctx->last_class_cache.is_meta = is_class_method_fast(self_class, _cmd);
+        ctx->last_class_cache.name = is_meta ? class_getName(object_getClass(self)) : class_getName(self_class);
+        ctx->last_class_cache.is_meta = is_meta;
         
         frame->self_class = self_class;
         frame->self_class_name = ctx->last_class_cache.name;
