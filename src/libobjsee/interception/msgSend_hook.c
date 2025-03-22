@@ -219,8 +219,8 @@ __attribute__((aligned(16), always_inline, hot))
 uintptr_t post_objc_msgSend_callback(void) {
     struct tracer_thread_context_t *ctx = (struct tracer_thread_context_t *)pthread_getspecific(interception_stacktrace_thread_key);
     size_t current_depth = ctx->stack_depth;
-    if (current_depth < 0) {
-        tracer_set_error(g_tracer_ctx, "attempted to pop a record with index < 0. this is not expected.");
+    if (current_depth == 0) {
+        tracer_set_error(g_tracer_ctx, "attempted to pop a record with index 0");
         abort();
     }
     
@@ -341,8 +341,8 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
         return TRACER_ERROR_MEMORY;
     }
     
-    void *_objc_msgSend = get_original_objc_msgSend();
-    if (_objc_msgSend == NULL) {
+    original_objc_msgSend = get_original_objc_msgSend();
+    if (original_objc_msgSend == NULL) {
         tracer_set_error(g_tracer_ctx, "Failed to locate objc_msgSend");
         return TRACER_ERROR_INITIALIZATION;
     }
@@ -351,16 +351,10 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
     void *jbhooker_handle = dlopen("/var/jb/usr/lib/libsubstrate.dylib", 0);
     void *_MSHookFunction = dlsym(jbhooker_handle, "MSHookFunction");
     if (_MSHookFunction) {
-        ((void (*)(void *, void *, void **))_MSHookFunction)(_objc_msgSend, new_objc_msgSend, (void **)&original_objc_msgSend);
+        ((void (*)(void *, void *, void **))_MSHookFunction)(original_objc_msgSend, new_objc_msgSend, (void **)&original_objc_msgSend);
     }
 #else
     {
-        original_objc_msgSend = _objc_msgSend;
-        if (original_objc_msgSend == NULL) {
-            tracer_set_error(g_tracer_ctx, "Failed to locate objc_msgSend");
-            return TRACER_ERROR_INITIALIZATION;
-        }
-        
         struct symbol_rebinding_t *rebinding = hook_function("objc_msgSend", new_objc_msgSend);
         if (rebinding == NULL) {
             tracer_set_error(g_tracer_ctx, "Failed to hook objc_msgSend");

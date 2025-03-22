@@ -129,7 +129,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             }
             
             size_t instance_size = class_getInstanceSize(object_class);
-            if (malloc_sz > 0 && malloc_sz < instance_size) {
+            if (malloc_sz < instance_size) {
                 return;
             }
             

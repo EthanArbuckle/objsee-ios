@@ -723,7 +723,7 @@ int run_tui_trace_server(tracer_config_t *config) {
                     memmove(buffer, line_start, buffer_pos);
                 }
             }
-            else if (bytes_read == 0 || (bytes_read < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+            else if (bytes_read == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) {
                 time_t now = time(NULL);
                 char timestr[64];
                 strftime(timestr, sizeof(timestr), "%H:%M:%S", localtime(&now));

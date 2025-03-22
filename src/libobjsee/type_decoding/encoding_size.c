@@ -239,9 +239,7 @@ kern_return_t get_offsets_of_args_using_type_encoding(const char *type_encoding,
         return KERN_FAILURE;
     }
     
-    size_t current_offset = 0;
     size_t arg_index = 0;
-    
     while (*cursor != '\0' && arg_index < arg_count) {
         while (*cursor != '\0' && !isdigit((unsigned char)*cursor)) {
             cursor++;
@@ -251,11 +249,7 @@ kern_return_t get_offsets_of_args_using_type_encoding(const char *type_encoding,
             break;
         }
         
-        current_offset = strtol(cursor, (char **)&cursor, 10);
-        if (arg_index < arg_count) {
-            offsets[arg_index++] = current_offset;
-        }
-        
+        offsets[arg_index++] = strtol(cursor, (char **)&cursor, 10);
         while (*cursor != '\0' && isdigit((unsigned char)*cursor)) {
             cursor++;
         }

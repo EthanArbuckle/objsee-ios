@@ -205,11 +205,6 @@ tracer_result_t tracer_internal_init(tracer_t *tracer) {
     }
     
     tracer_config_t *config = &tracer->config;
-    if (config == NULL) {
-        tracer_set_error(tracer, "Cannot initialize tracer: invalid configuration");
-        return TRACER_ERROR_INVALID_ARGUMENT;
-    }
-    
     if (!config->format.include_formatted_trace && !config->format.include_event_json) {
         tracer_set_error(tracer, "Invalid format options");
         return TRACER_ERROR_INVALID_ARGUMENT;

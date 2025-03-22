@@ -60,7 +60,7 @@ static unsigned char *base64_decode(const char *input, size_t *out_length) {
         unsigned char b = decode_table[encoded[i++]];
         unsigned char c = decode_table[encoded[i++]];
         unsigned char d = decode_table[encoded[i++]];
-        if (a == 255 || b == 255 || (c == 255 && c != 64) || (d == 255 && d != 64)) {
+        if (a == 255 || b == 255 || c == 255 || d == 255) {
             free(decoded);
             return NULL;
         }
