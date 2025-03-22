@@ -348,7 +348,7 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
     }
 
 #if USE_JAILBREAK_HOOKER
-    void *jbhooker_handle = dlopen("/var/jb/usr/lib/libellekit.dylib", 0);
+    void *jbhooker_handle = dlopen("/var/jb/usr/lib/libsubstrate.dylib", 0);
     void *_MSHookFunction = dlsym(jbhooker_handle, "MSHookFunction");
     if (_MSHookFunction) {
         ((void (*)(void *, void *, void **))_MSHookFunction)(_objc_msgSend, new_objc_msgSend, (void **)&original_objc_msgSend);

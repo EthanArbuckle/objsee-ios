@@ -217,48 +217,183 @@ tracer_result_t decode_tracer_config(const char *config_str, tracer_config_t *co
     return TRACER_SUCCESS;
 }
 
-const char *copy_human_readable_config(tracer_config_t config) {    
-    char *formatted = (char *)malloc(1024);
+const char *copy_human_readable_config(tracer_config_t config) {
+    const size_t buffer_size = 1024;
+    char *formatted = (char *)malloc(buffer_size);
     if (formatted == NULL) {
         return NULL;
     }
     
     int offset = 0;
-    offset += snprintf(formatted + offset, 1024 - offset, "Transport: %d, ", config.transport);
+    int written = 0;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Transport: %d, ", config.transport);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
     if (config.transport == TRACER_TRANSPORT_SOCKET) {
-        offset += snprintf(formatted + offset, 1024 - offset, "Host: %s, ", config.transport_config.host);
-        offset += snprintf(formatted + offset, 1024 - offset, "Port: %d, ", config.transport_config.port);
+        written = snprintf(formatted + offset, buffer_size - offset, "Host: %s, ", config.transport_config.host);
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
+        
+        written = snprintf(formatted + offset, buffer_size - offset, "Port: %d, ", config.transport_config.port);
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
     }
     else if (config.transport == TRACER_TRANSPORT_FILE) {
-        offset += snprintf(formatted + offset, 1024 - offset, "File: %s, ", config.transport_config.file_path);
+        written = snprintf(formatted + offset, buffer_size - offset, "File: %s, ", config.transport_config.file_path);
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
     }
     else if (config.transport == TRACER_TRANSPORT_CUSTOM) {
-        offset += snprintf(formatted + offset, 1024 - offset, "Custom transport, ");
+        written = snprintf(formatted + offset, buffer_size - offset, "Custom transport, ");
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
     }
     else {
-        offset += snprintf(formatted + offset, 1024 - offset, "Stdout transport, ");
+        written = snprintf(formatted + offset, buffer_size - offset, "Stdout transport, ");
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
     }
     
-    offset += snprintf(formatted + offset, 1024 - offset, "Include formatted trace: %d, ", config.format.include_formatted_trace);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include event json: %d, ", config.format.include_event_json);
-    offset += snprintf(formatted + offset, 1024 - offset, "Output as json: %d, ", config.format.output_as_json);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include colors: %d, ", config.format.include_colors);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include thread id: %d, ", config.format.include_thread_id);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include indents: %d, ", config.format.include_indents);
-    offset += snprintf(formatted + offset, 1024 - offset, "Indent char: %s, ", config.format.indent_char);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include indent separators: %d, ", config.format.include_indent_separators);
-    offset += snprintf(formatted + offset, 1024 - offset, "Indent separator: %s, ", config.format.indent_separator_char);
-    offset += snprintf(formatted + offset, 1024 - offset, "Variable separator spacing: %d, ", config.format.variable_separator_spacing);
-    offset += snprintf(formatted + offset, 1024 - offset, "Static separator spacing: %d, ", config.format.static_separator_spacing);
-    offset += snprintf(formatted + offset, 1024 - offset, "Include newline in formatted trace: %d, ", config.format.include_newline_in_formatted_trace);
-    offset += snprintf(formatted + offset, 1024 - offset, "Arg format: %d, ", config.format.args);
+    written = snprintf(formatted + offset, buffer_size - offset, "Include formatted trace: %d, ", config.format.include_formatted_trace);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Include event json: %d, ", config.format.include_event_json);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Output as json: %d, ", config.format.output_as_json);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Include colors: %d, ", config.format.include_colors);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Include thread id: %d, ", config.format.include_thread_id);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Include indents: %d, ", config.format.include_indents);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Indent char: %s, ", config.format.indent_char);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Include indent separators: %d, ", config.format.include_indent_separators);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Indent separator: %s, ", config.format.indent_separator_char);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Variable separator spacing: %d, ", config.format.variable_separator_spacing);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Static separator spacing: %d, ", config.format.static_separator_spacing);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Include newline in formatted trace: %d, ", config.format.include_newline_in_formatted_trace);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Arg format: %d, ", config.format.args);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
     
     for (int i = 0; i < config.filter_count; i++) {
-        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d Class pattern: %s, ", i, config.filters[i].class_pattern);
-        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d Method pattern: %s, ", i, config.filters[i].method_pattern);
-        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d Image pattern: %s, ", i, config.filters[i].image_pattern);
-        offset += snprintf(formatted + offset, 1024 - offset, "Filter %d Exclude: %d\n", i, config.filters[i].exclude);
-    }
+        written = snprintf(formatted + offset, buffer_size - offset, "Filter %d Class pattern: %s, ", i, config.filters[i].class_pattern);
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
         
+        written = snprintf(formatted + offset, buffer_size - offset, "Filter %d Method pattern: %s, ", i, config.filters[i].method_pattern);
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
+        
+        written = snprintf(formatted + offset, buffer_size - offset, "Filter %d Image pattern: %s, ", i, config.filters[i].image_pattern);
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
+        
+        written = snprintf(formatted + offset, buffer_size - offset, "Filter %d Exclude: %d\n", i, config.filters[i].exclude);
+        if (written < 0 || written >= buffer_size - offset) {
+            free(formatted);
+            return NULL;
+        }
+        offset += written;
+    }
+    
     return formatted;
 }
