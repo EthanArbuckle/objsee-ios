@@ -219,10 +219,6 @@ __attribute__((aligned(16), always_inline, hot))
 uintptr_t post_objc_msgSend_callback(void) {
     struct tracer_thread_context_t *ctx = (struct tracer_thread_context_t *)pthread_getspecific(interception_stacktrace_thread_key);
     size_t current_depth = ctx->stack_depth;
-    if (current_depth == 0) {
-        tracer_set_error(g_tracer_ctx, "attempted to pop a record with index 0");
-        abort();
-    }
     
     ctx->stack_depth -= 1;
     if (ctx->trace_depth > 0) {

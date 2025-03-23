@@ -5,6 +5,7 @@
 # //  Created by Ethan Arbuckle on 11/30/24.
 # //
 
+import logging
 import os
 import subprocess
 from dataclasses import dataclass
@@ -37,6 +38,10 @@ class BinaryInstallInformation:
             self.on_device_path = root_prefix / self.on_device_path
 
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 def determine_jb_root_prefix() -> Path:
     try:
         command = [
@@ -57,16 +62,21 @@ def determine_jb_root_prefix() -> Path:
         else:
             return Path("/")
     except subprocess.CalledProcessError as exc:
-        print(f"Failed to determine JB_ROOT_PREFIX with error: {exc}")
+        logger.warning(f"Failed to determine JB_ROOT_PREFIX with error: {exc}")
         return Path("/")
 
 
 def find_host_ldid2_path() -> Path | None:
-    ldid_path_output = subprocess.check_output(["which", "ldid2"], text=True)
-    ldid_path = Path(ldid_path_output.strip())
-    if ldid_path.exists():
-        return ldid_path
-    return None
+    try:
+        environment = os.environ.copy()
+        environment["PATH"] = f"{environment['PATH']}:/opt/homebrew/bin/"
+        ldid_path_output = subprocess.check_output(["which", "ldid2"], text=True, env=environment)
+        ldid_path = Path(ldid_path_output.strip())
+        if ldid_path.exists():
+            return ldid_path
+    except subprocess.CalledProcessError as exc:
+        logger.warning(f"Failed to find ldid2 on host with error: {exc}")
+    return Path("ldid2")
 
 
 BINARY_DEPLOY_INFO = {
@@ -76,22 +86,34 @@ BINARY_DEPLOY_INFO = {
 
 
 def run_command_on_device(command: str) -> bytes:
-    return subprocess.check_output(
-        f'ssh -oStricthostkeychecking=no -oUserknownhostsfile=/dev/null -p {DEVICE_SSH_PORT} root@{DEVICE_SSH_IP} "{command}"',
-        shell=True,
-    )
+    ssh_args = [
+        "ssh",
+        "-oStricthostkeychecking=no",
+        "-oUserknownhostsfile=/dev/null",
+        "-p",
+        DEVICE_SSH_PORT,
+        f"root@{DEVICE_SSH_IP}",
+        command,
+    ]
+    return subprocess.check_output(ssh_args)
 
 
 def copy_file_to_device(local: Path, remote: Path) -> None:
-    subprocess.check_output(
-        f'scp -oStricthostkeychecking=no -oUserknownhostsfile=/dev/null -P {DEVICE_SSH_PORT} "{local.as_posix()}" root@{DEVICE_SSH_IP}:"{remote.as_posix()}"',
-        shell=True,
-    )
+    scp_args = [
+        "scp",
+        "-oStricthostkeychecking=no",
+        "-oUserknownhostsfile=/dev/null",
+        "-P",
+        DEVICE_SSH_PORT,
+        local.as_posix(),
+        f"root@{DEVICE_SSH_IP}:{remote.as_posix()}",
+    ]
+    subprocess.check_output(scp_args)
 
 
 def local_sign_binary(binary_path: Path, entitlements_file: Path | None = None) -> None:
     local_ldid2_path = find_host_ldid2_path()
-    if not local_ldid2_path or not local_ldid2_path.exists():
+    if not local_ldid2_path:
         raise CodeSignError("Could not find ldid2 on host system")
 
     ldid_cmd_args = [local_ldid2_path.as_posix()]
@@ -118,8 +140,7 @@ def deploy_to_device(local_path: Path, binary_deploy_info: BinaryInstallInformat
     try:
         run_command_on_device(f"rm {binary_deploy_info.on_device_path.as_posix()} || true")
     except subprocess.CalledProcessError as e:
-        print(f"Failed to delete existing binary on device with error: {e}")
-        pass
+        logger.warning(f"Failed to delete existing binary on device with error: {e}")
 
     # Copy local signed binary to device
     try:
@@ -144,7 +165,7 @@ def deploy_to_device(local_path: Path, binary_deploy_info: BinaryInstallInformat
 
 
 if __name__ == "__main__":
-    print("deploying binaries device")
+    logger.info("deploying binaries device")
 
     if "BUILT_PRODUCTS_DIR" not in os.environ:
         raise BinaryNotFoundError("BUILT_PRODUCTS_DIR var not found in environment")
@@ -163,4 +184,4 @@ if __name__ == "__main__":
 
         binary_deploy_info = BINARY_DEPLOY_INFO[framework_path.stem]
         deploy_to_device(fw_binary_path, binary_deploy_info)
-    print("Done deploying binaries to device")
+    logger.info("Done deploying binaries to device")
