@@ -112,7 +112,7 @@ static bool match_wildcard(const char *pattern, const char *str) {
         return false;
     }
 
-    if (!*pattern|| strcmp(pattern, "*") == 0) {
+    if (!*pattern || strcmp(pattern, "*") == 0) {
         return true;
     }
     
@@ -151,7 +151,7 @@ static bool match_wildcard(const char *pattern, const char *str) {
 
 
 static bool match_wildcard_simd(const char *pattern, const char *str) {
-    return match_wildcard(pattern, str);
+//    return match_wildcard(pattern, str);
     if (!pattern || !str) {
         return false;
     }
@@ -243,77 +243,121 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
     if (tracer == NULL || frame == NULL || frame->self_class_name == NULL || frame->selector_name == NULL) {
         return false;
     }
-
+    
     pthread_rwlock_rdlock(&tracer->filter_lock);
     
-    bool should_fetch_image_path = false;
     for (size_t i = 0; i < tracer->config.filter_count; i++) {
+        // This pass only considers exclusion filters
         const tracer_filter_t *filter = &tracer->config.filters[i];
-        
-        if (!should_fetch_image_path && (filter->image_pattern != NULL || filter->custom_filter != NULL)) {
-            should_fetch_image_path = true;
-        }
-        
-        if (!filter->exclude) {
+        if (filter->exclude == false) {
             continue;
         }
         
-        if (filter->class_pattern && match_wildcard_simd(filter->class_pattern, frame->self_class_name)) {
-            if (filter->method_pattern == NULL || match_wildcard_simd(filter->method_pattern, frame->selector_name)) {
+        // If the image path has not been resolved
+        if (frame->image_path == NULL) {
+            // And the filter calls for the image path
+            if (filter->image_pattern != NULL || filter->custom_filter != NULL) {
+                // Then fetch the image path
+                frame->image_path = class_getImageName(frame->self_class);
+            }
+        }
+        
+        if (filter->image_pattern != NULL && frame->image_path != NULL) {
+            if (strstr(frame->image_path, filter->image_pattern)) {
+                pthread_rwlock_unlock(&tracer->filter_lock);
+                return false;
+            }
+        }
+        
+        if (filter->class_pattern != NULL) {
+            if (match_wildcard_simd(filter->class_pattern, frame->self_class_name)) {
+                pthread_rwlock_unlock(&tracer->filter_lock);
+                return false;
+            }
+        }
+            
+        if (filter->method_pattern != NULL) {
+            if (match_wildcard_simd(filter->method_pattern, frame->selector_name)) {
                 pthread_rwlock_unlock(&tracer->filter_lock);
                 return false;
             }
         }
     }
     
-    if (should_fetch_image_path && frame->image_path == NULL) {
-        frame->image_path = class_getImageName(frame->self_class);
-    }
-    
     bool should_trace = false;
-    bool class_match = false;
     for (size_t i = 0; i < tracer->config.filter_count; i++) {
+        // This pass only considers inclusion filters
         const tracer_filter_t *filter = &tracer->config.filters[i];
         if (filter->exclude) {
             continue;
         }
-
-        if (!should_trace && ((filter->class_pattern && match_wildcard_simd(filter->class_pattern, frame->self_class_name)) || (filter->method_pattern && match_wildcard_simd(filter->method_pattern, frame->selector_name)))) {
-                              
-            class_match = true;
-            if (filter->method_pattern == NULL || match_wildcard(filter->method_pattern, frame->selector_name)) {
-                should_trace = true;
-
-                if (filter->custom_filter != NULL) {
-                    tracer_event_t event = {
-                        .class_name = frame->self_class_name,
-                        .method_name = frame->selector_name,
-                        .image_path = frame->image_path,
-                        .thread_id = (uint64_t)pthread_self(),
-                        .is_class_method = false,
-                        .trace_depth = 0,
-                        .real_depth = 0,
-                        .arguments = NULL,
-                        .argument_count = 0,
-                        .method_signature = NULL
-                    };
-                    
-                    should_trace = filter->custom_filter((struct tracer_event_t *)&event, filter->custom_filter_context);
-                }
-                
-                if (should_trace) {
-                    break;
-                }
+        
+        if (should_trace) {
+            break;
+        }
+        
+        // If the image path has not been resolved
+        if (frame->image_path == NULL) {
+            // And the filter calls for the image path
+            if (filter->image_pattern != NULL || filter->custom_filter != NULL) {
+                // Then fetch the image path
+                frame->image_path = class_getImageName(frame->self_class);
             }
         }
         
-        // Class patterns take precedence over image patterns
-        if (!class_match && filter->image_pattern != NULL && frame->image_path != NULL) {
-            if (strstr(frame->image_path, filter->image_pattern) != NULL) {
-                should_trace = true;
-                break;
+        if (filter->custom_filter != NULL) {
+            tracer_event_t event = {
+                .class_name = frame->self_class_name,
+                .method_name = frame->selector_name,
+                .image_path = frame->image_path,
+                .thread_id = (uint64_t)pthread_self(),
+                .is_class_method = false,
+                .trace_depth = 0,
+                .real_depth = 0,
+                .arguments = NULL,
+                .argument_count = 0,
+                .method_signature = NULL
+            };
+            
+            should_trace = filter->custom_filter((struct tracer_event_t *)&event, filter->custom_filter_context);
+            continue;
+        }
+        
+        // If an image filter is specified
+        if (filter->image_pattern != NULL) {
+            // And the current image path is NULL
+            if (frame->image_path == NULL) {
+                // Then do not trace
+                continue;
+            }
+            
+            // If both image paths are not NULL
+            // And the current image path does not match
+            if (strstr(frame->image_path, filter->image_pattern) == NULL) {
+                // Then do not trace
+                continue;
             }
         }
+        
+        // If a class filter is specified
+        if (filter->class_pattern != NULL) {
+            // And the current class name matches
+            if (!match_wildcard_simd(filter->class_pattern, frame->self_class_name)) {
+                // Then do not trace
+                continue;
+            }
+        }
+        
+        // If a method filter is specified
+        if (filter->method_pattern != NULL) {
+            // And the current method name does not match
+            if (!match_wildcard_simd(filter->method_pattern, frame->selector_name)) {
+                // Then do not trace
+                continue;
+            }
+        }
+        
+        should_trace = true;
     }
     
     pthread_rwlock_unlock(&tracer->filter_lock);
