@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -32,6 +32,8 @@
 		5F9EE5AF2D5734F100A32B14 /* arg_description.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F9EE5AD2D5734E300A32B14 /* arg_description.h */; };
 		5F9EE5B12D5734F400A32B14 /* arg_description.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE5B02D5734F300A32B14 /* arg_description.c */; };
 		5F9EE5B22D5734F400A32B14 /* arg_description.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE5B02D5734F300A32B14 /* arg_description.c */; };
+		5F9EE5DE2D575FC900A32B14 /* libobjsee.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FAF157A2C7E4CA100E10412 /* libobjsee.framework */; };
+		5F9EE5DF2D575FC900A32B14 /* libobjsee.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 5FAF157A2C7E4CA100E10412 /* libobjsee.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5F9EE60F2D589A6C00A32B14 /* ArgDescriptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE60E2D589A6200A32B14 /* ArgDescriptionTests.m */; };
 		5F9EE6102D589B2700A32B14 /* arg_capture.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FBAC0542D4FBA1300AF19D8 /* arg_capture.c */; };
 		5F9EE6112D589B2700A32B14 /* objc_arg_description.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE5AA2D5729E600A32B14 /* objc_arg_description.c */; };
@@ -132,6 +134,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		5F9EE5E02D575FC900A32B14 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5FAF15712C7E4CA100E10412 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5FAF15792C7E4CA100E10412;
+			remoteInfo = libobjsee;
+		};
 		5FCA29DA2CFC50AB00D7BB08 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5FAF15712C7E4CA100E10412 /* Project object */;
@@ -162,6 +171,20 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		5F9EE5E22D575FC900A32B14 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				5F9EE5DF2D575FC900A32B14 /* libobjsee.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		5F34BF872D01AF980076EB3C /* tracer_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tracer_types.h; sourceTree = "<group>"; };
 		5F5AC4742D1B1B85000577D3 /* loader.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = loader.c; sourceTree = "<group>"; };
@@ -181,6 +204,7 @@
 		5F9EE5AA2D5729E600A32B14 /* objc_arg_description.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = objc_arg_description.c; sourceTree = "<group>"; };
 		5F9EE5AD2D5734E300A32B14 /* arg_description.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arg_description.h; sourceTree = "<group>"; };
 		5F9EE5B02D5734F300A32B14 /* arg_description.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = arg_description.c; sourceTree = "<group>"; };
+		5F9EE5C32D575FB400A32B14 /* testapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = testapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F9EE60E2D589A6200A32B14 /* ArgDescriptionTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ArgDescriptionTests.m; sourceTree = "<group>"; };
 		5F9EE61F2D594B0000A32B14 /* SelectorDenyListTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SelectorDenyListTests.m; sourceTree = "<group>"; };
 		5F9EE6232D594CEF00A32B14 /* RealizedClassTrackingTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RealizedClassTrackingTests.m; sourceTree = "<group>"; };
@@ -245,7 +269,29 @@
 		5FF9EFE62D3321A000BCFBA9 /* libobjseeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = libobjseeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		5F9EE5D92D575FB700A32B14 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 5F9EE5C22D575FB400A32B14 /* testapp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		5F9EE5C42D575FB400A32B14 /* testapp */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (5F9EE5D92D575FB700A32B14 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = testapp; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		5F9EE5C02D575FB400A32B14 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F9EE5DE2D575FC900A32B14 /* libobjsee.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5FAF15772C7E4CA100E10412 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -304,6 +350,7 @@
 				5FAF157C2C7E4CA100E10412 /* src/libobjsee */,
 				5FF45BFD2D333F8B0073F42E /* src/objsee-cli */,
 				5FF45C0A2D333F980073F42E /* src/libobjseeTests */,
+				5F9EE5C42D575FB400A32B14 /* testapp */,
 				5F9EE5DD2D575FC900A32B14 /* Frameworks */,
 				5FAF157B2C7E4CA100E10412 /* Products */,
 			);
@@ -315,6 +362,7 @@
 				5FAF157A2C7E4CA100E10412 /* libobjsee.framework */,
 				5FCA2A0B2CFC533D00D7BB08 /* cli.framework */,
 				5FF9EFE62D3321A000BCFBA9 /* libobjseeTests.xctest */,
+				5F9EE5C32D575FB400A32B14 /* testapp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -586,6 +634,30 @@
 /* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
+		5F9EE5C22D575FB400A32B14 /* testapp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5F9EE5DA2D575FB700A32B14 /* Build configuration list for PBXNativeTarget "testapp" */;
+			buildPhases = (
+				5F9EE5BF2D575FB400A32B14 /* Sources */,
+				5F9EE5C02D575FB400A32B14 /* Frameworks */,
+				5F9EE5C12D575FB400A32B14 /* Resources */,
+				5F9EE5E22D575FC900A32B14 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5F9EE5E12D575FC900A32B14 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5F9EE5C42D575FB400A32B14 /* testapp */,
+			);
+			name = testapp;
+			packageProductDependencies = (
+			);
+			productName = testapp;
+			productReference = 5F9EE5C32D575FB400A32B14 /* testapp.app */;
+			productType = "com.apple.product-type.application";
+		};
 		5FAF15792C7E4CA100E10412 /* libobjsee */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5FAF15812C7E4CA100E10412 /* Build configuration list for PBXNativeTarget "libobjsee" */;
@@ -654,6 +726,9 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
+					5F9EE5C22D575FB400A32B14 = {
+						CreatedOnToolsVersion = 16.2;
+					};
 					5FAF15792C7E4CA100E10412 = {
 						CreatedOnToolsVersion = 15.4;
 						LastSwiftMigration = 1620;
@@ -687,11 +762,19 @@
 				5FF9EFE52D3321A000BCFBA9 /* libobjseeTests */,
 				5FCA29D62CFC509800D7BB08 /* install-to-device */,
 				5FCA2A0A2CFC533D00D7BB08 /* cli */,
+				5F9EE5C22D575FB400A32B14 /* testapp */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		5F9EE5C12D575FB400A32B14 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5FAF15782C7E4CA100E10412 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -716,6 +799,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5F9EE5BF2D575FB400A32B14 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5FAF15762C7E4CA100E10412 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -818,6 +908,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		5F9EE5E12D575FC900A32B14 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5FAF15792C7E4CA100E10412 /* libobjsee */;
+			targetProxy = 5F9EE5E02D575FC900A32B14 /* PBXContainerItemProxy */;
+		};
 		5FCA29DB2CFC50AB00D7BB08 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 5FAF15792C7E4CA100E10412 /* libobjsee */;
@@ -842,6 +937,62 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		5F9EE5DB2D575FB700A32B14 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 44L979X757;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = testapp/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ethanarbuckle.testapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5F9EE5DC2D575FB700A32B14 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 44L979X757;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = testapp/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ethanarbuckle.testapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		5FAF157F2C7E4CA100E10412 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1253,6 +1404,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		5F9EE5DA2D575FB700A32B14 /* Build configuration list for PBXNativeTarget "testapp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F9EE5DB2D575FB700A32B14 /* Debug */,
+				5F9EE5DC2D575FB700A32B14 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		5FAF15742C7E4CA100E10412 /* Build configuration list for PBXProject "objsee" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
