@@ -10,7 +10,7 @@
 		5F34BF882D01AF9C0076EB3C /* tracer_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F34BF872D01AF980076EB3C /* tracer_types.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		5F34BF892D01AF9C0076EB3C /* tracer_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F34BF872D01AF980076EB3C /* tracer_types.h */; };
 		5F34BFE12D02B9D00076EB3C /* config_encode.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FCA2A3C2CFD910700D7BB08 /* config_encode.c */; };
-		5F5AC4762D1B1B85000577D3 /* loader.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F5AC4742D1B1B85000577D3 /* loader.c */; };
+		5F5AC4762D1B1B85000577D3 /* loader.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F5AC4742D1B1B85000577D3 /* loader.m */; };
 		5F644B912D53A9E900596EBD /* signal_guard.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F644B902D53A9E900596EBD /* signal_guard.h */; };
 		5F644B922D53A9E900596EBD /* signal_guard.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F644B902D53A9E900596EBD /* signal_guard.h */; };
 		5F7084952D5E2C7300329B4E /* objc-internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F7084942D5E2C7300329B4E /* objc-internal.h */; };
@@ -187,7 +187,7 @@
 
 /* Begin PBXFileReference section */
 		5F34BF872D01AF980076EB3C /* tracer_types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tracer_types.h; sourceTree = "<group>"; };
-		5F5AC4742D1B1B85000577D3 /* loader.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = loader.c; sourceTree = "<group>"; };
+		5F5AC4742D1B1B85000577D3 /* loader.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = loader.m; sourceTree = "<group>"; };
 		5F644B902D53A9E900596EBD /* signal_guard.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = signal_guard.h; sourceTree = "<group>"; };
 		5F7084942D5E2C7300329B4E /* objc-internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "objc-internal.h"; sourceTree = "<group>"; };
 		5F7084972D5E2EFD00329B4E /* TypeEncodingTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TypeEncodingTests.m; sourceTree = "<group>"; };
@@ -320,7 +320,7 @@
 		5F5AC4752D1B1B85000577D3 /* injection */ = {
 			isa = PBXGroup;
 			children = (
-				5F5AC4742D1B1B85000577D3 /* loader.c */,
+				5F5AC4742D1B1B85000577D3 /* loader.m */,
 			);
 			path = injection;
 			sourceTree = "<group>";
@@ -824,7 +824,7 @@
 				5FF45BDF2D333EBF0073F42E /* encoding_description.c in Sources */,
 				5FCA2A412CFD910700D7BB08 /* config_decode.c in Sources */,
 				5FCA2A4B2CFD910D00D7BB08 /* color_utils.c in Sources */,
-				5F5AC4762D1B1B85000577D3 /* loader.c in Sources */,
+				5F5AC4762D1B1B85000577D3 /* loader.m in Sources */,
 				5FCA2A4C2CFD910D00D7BB08 /* format.c in Sources */,
 				5FF45BEA2D333EC50073F42E /* hashtable.c in Sources */,
 				5FF45BEB2D333EC50073F42E /* highlight.c in Sources */,
