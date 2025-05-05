@@ -470,10 +470,14 @@ static void *exception_handler(void *unused) {
 }
 
 void setup_exception_handler_on_process(pid_t traced_app_pid) {
-    highlight_init(NULL);
-    
-    if (init_core_symbolication() != KERN_SUCCESS) {
-        printf("Failed to locate CoreSymbolication functions\n");
+    g_state.traced_app_pid = traced_app_pid;
+    g_state.symbolicator = CSNULL;
+    g_state.exception_port = MACH_PORT_NULL;
+    g_state.traced_app_task = MACH_PORT_NULL;
+    g_state.exceptions_caught = 0;
+
+    if (!symbolication_initialized()) {
+        printf("Failed to initialize CoreSymbolication\n");
         return;
     }
     

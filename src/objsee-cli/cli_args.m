@@ -161,10 +161,10 @@ int apply_defaults_to_config(tracer_config_t *config) {
         .indent_char = " ",
         .include_indent_separators = true,
         .indent_separator_char = "|",
-        .variable_separator_spacing = true,
+        .variable_separator_spacing = false,
         .static_separator_spacing = 2,
         .include_newline_in_formatted_trace = false,
-        .args = TRACER_ARG_FORMAT_NONE,
+        .args = TRACER_ARG_FORMAT_CLASS,
     };
     
     return 0;

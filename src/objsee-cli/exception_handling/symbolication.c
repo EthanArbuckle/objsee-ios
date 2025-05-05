@@ -30,7 +30,7 @@ CSSymbolicatorRef create_symbolicator_with_task(task_t task) {
     if (task == TASK_NULL) {
         return CSNULL;
     }
-    init_core_symbolication();
+    
     return CS.CreateWithTaskFlagsAndNotification(task, 1, NULL);
 }
 
@@ -109,7 +109,12 @@ void for_each_symbol_owner(CSSymbolicatorRef symbolicator, void (^handler)(CSSym
     });
 }
 
-kern_return_t init_core_symbolication(void) {
+bool symbolication_initialized(void) {
+    return CS.initialized;
+}
+
+__attribute__((constructor))
+static kern_return_t init_core_symbolication(void) {
     
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{

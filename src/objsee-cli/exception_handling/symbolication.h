@@ -43,7 +43,6 @@ void for_each_symbol(CSSymbolicatorRef symbolicator, void (^handler)(CSSymbolRef
 void for_each_symbol_owner(CSSymbolicatorRef symbolicator, void (^handler)(CSSymbolOwnerRef));
 int get_symbol_owner_count(CSSymbolicatorRef symbolicator);
 bool cs_isnull(CSTypeRef ref);
-
-kern_return_t init_core_symbolication(void);
+bool symbolication_initialized(void);
 
 #endif /* symbolication_h */
