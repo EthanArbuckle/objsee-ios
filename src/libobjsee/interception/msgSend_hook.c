@@ -299,27 +299,7 @@ void *get_original_objc_msgSend(void) {
 }
 
 tracer_result_t init_message_interception(tracer_t *tracer) {
-    
-    // To combat unrealized classes during objc_msgSend argument capturing at process launch, before enabling interception
-    // run through all objc classes to ensure they're realized
-    unsigned int class_count = 0;
-    Class *classes = objc_copyClassList(&class_count);
-    if (classes == NULL) {
-        tracer_set_error(g_tracer_ctx, "init_message_interception: Failed to get class list");
-        return TRACER_ERROR_INITIALIZATION;
-    }
 
-    for (unsigned int i = 0; i < class_count; i++) {
-        Class cls = classes[i];
-        if (cls == NULL) {
-            continue;
-        }
-
-        class_isMetaClass(cls);
-        record_class_encounter(object_getClass((id)cls));
-    }
-    free(classes);
-    
     if (tracer == NULL) {
         tracer_set_error(g_tracer_ctx, "init_message_interception: Invalid tracer context");
         return TRACER_ERROR_INVALID_ARGUMENT;
@@ -350,15 +330,13 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
         ((void (*)(void *, void *, void **))_MSHookFunction)(original_objc_msgSend, new_objc_msgSend, (void **)&original_objc_msgSend);
     }
 #else
-    {
-        struct symbol_rebinding_t *rebinding = hook_function("objc_msgSend", new_objc_msgSend);
-        if (rebinding == NULL) {
-            tracer_set_error(g_tracer_ctx, "Failed to hook objc_msgSend");
-            return TRACER_ERROR_INITIALIZATION;
-        }
-        
-        free(rebinding);
+    struct symbol_rebinding_t *rebinding = hook_function("objc_msgSend", new_objc_msgSend);
+    if (rebinding == NULL) {
+        tracer_set_error(g_tracer_ctx, "Failed to hook objc_msgSend");
+        return TRACER_ERROR_INITIALIZATION;
     }
+    
+    free(rebinding);
 #endif
     return TRACER_SUCCESS;
 }
