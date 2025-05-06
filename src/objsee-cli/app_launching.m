@@ -36,30 +36,53 @@ kern_return_t launch_app_with_encoded_tracer_config(NSString *bundleID, NSString
         dispatch_semaphore_signal(sem);
     };
     
+    // [FBSSystemService sharedService]
     id systemService = ((id (*)(id, SEL))objc_msgSend)(NSClassFromString(@"FBSSystemService"), NSSelectorFromString(@"sharedService"));
-    mach_port_t clientPort = ((mach_port_t (*)(void))dlsym(RTLD_DEFAULT, "SBSCreateClientEntitlementEnforcementPort"))();
-    ((void (*)(id, SEL, NSString *, NSDictionary *, mach_port_t, void (^)(NSError *)))objc_msgSend)(systemService, NSSelectorFromString(@"openApplication:options:clientPort:withResult:"), bundleID, options, clientPort, completionHandler);
+    if (!systemService) {
+        NSLog(@"Cannot launch, system service unavailable");
+        return KERN_FAILURE;
+    }
+    
+    void *_SBSCreateClientEntitlementEnforcementPort = dlsym(RTLD_DEFAULT, "SBSCreateClientEntitlementEnforcementPort");
+    if (_SBSCreateClientEntitlementEnforcementPort == NULL) {
+        NSLog(@"Failed to resolve SBSCreateClientEntitlementEnforcementPort");
+        return KERN_FAILURE;
+    }
+    
+    mach_port_t clientPort = ((mach_port_t (*)(void))_SBSCreateClientEntitlementEnforcementPort)();
+    
+    // [systemService openApplication:options:clientPort:withResult:]
+    SEL launchSelector = NSSelectorFromString(@"openApplication:options:clientPort:withResult:");
+    ((void (*)(id, SEL, NSString *, NSDictionary *, mach_port_t, void (^)(NSError *)))objc_msgSend)(systemService, launchSelector, bundleID, options, clientPort, completionHandler);
     
     dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
     return launchStatus;
 }
 
 kern_return_t terminate_app_if_running(NSString *bundleID) {
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    
-    void (^completionHandler)(void *) = ^void(void *_something) {
-        dispatch_semaphore_signal(sem);
-    };
-    
+    // [FBSSystemService sharedService]
     id systemService = ((id (*)(id, SEL))objc_msgSend)(NSClassFromString(@"FBSSystemService"), NSSelectorFromString(@"sharedService"));
-    ((void (*)(id, SEL, id, long long, BOOL, id, void (^)(void *)))objc_msgSend)(systemService, NSSelectorFromString(@"terminateApplication:forReason:andReport:withDescription:completion:"), bundleID, 1, 0, nil, completionHandler);
+    if (!systemService) {
+        NSLog(@"Cannot launch, system service unavailable");
+        return KERN_FAILURE;
+    }
     
-    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
-    return KERN_SUCCESS;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    __block bool success = false;
+
+    // [systemService terminateApplication:forReason:andReport:withDescription:completion:]
+    SEL terminateSelector = NSSelectorFromString(@"terminateApplication:forReason:andReport:withDescription:completion:");
+    ((void (*)(id, SEL, id, long long, BOOL, id, void (^)(void)))objc_msgSend)(systemService, terminateSelector, bundleID, 1, 0, nil, ^void(void) {
+        success = true;
+        dispatch_semaphore_signal(sem);
+    });
+    
+    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC));
+    return success ? KERN_SUCCESS : KERN_FAILURE;
 }
 
+
 void on_process_launch(NSString *bundleID, void (^completion)(pid_t pid)) {
-    
     static dispatch_once_t onceToken;
     static __strong void (^handler)(NSDictionary *);
     static __strong id monitor;
@@ -82,7 +105,19 @@ void on_process_launch(NSString *bundleID, void (^completion)(pid_t pid)) {
             if ([launchedAppBundleId isEqualToString:bundleID] == NO) {
                 return;
             }
-            
+/*
+             SBApplicationStateGetDescription(0) => Unknown
+             SBApplicationStateGetDescription(1) => Terminated
+             SBApplicationStateGetDescription(2) => Background Task Suspended
+             SBApplicationStateGetDescription(4) => Background Running
+             SBApplicationStateGetDescription(8) => Foreground Running
+             SBApplicationStateGetDescription(16) => Process Server
+             SBApplicationStateGetDescription(32) => Foreground Running Obscured
+ */         int state = [info[@"SBApplicationStateKey"] intValue];
+            if (state < 4) {
+                return;
+            }
+ 
             int currentPid = [info[@"SBApplicationStateProcessIDKey"] intValue];
             if (currentPid < 1) {
                 return;
@@ -97,6 +132,8 @@ void on_process_launch(NSString *bundleID, void (^completion)(pid_t pid)) {
             completion(currentPid);
         };
     });
+    
+    // [monitor setHandler:handler];
     ((void (*)(id, SEL, void (^)(NSDictionary *)))objc_msgSend)(monitor, sel_registerName("setHandler:"), handler);
 }
 
