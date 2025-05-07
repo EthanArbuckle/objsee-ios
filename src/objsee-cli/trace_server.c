@@ -171,7 +171,7 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid) {
             buffer[buffer_pos] = '\0';
             
             char *json_start = buffer;
-            char *json_end = buffer;
+            __unused char *json_end = buffer;
             while ((json_end = strchr(json_start, '\n')) != NULL) {
                 size_t json_len = json_end - json_start;
                 if (json_len > 0) {

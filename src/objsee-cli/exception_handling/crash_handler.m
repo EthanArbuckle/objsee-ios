@@ -180,26 +180,46 @@ static void print_thread_state(const arm_thread_state64_t *state, int failed_reg
 
 
 NSString *take_sample(task_t task) {
+    // sampler = [[VMUSampler alloc] initWithPID:0 orTask:task options:2];
     Class _VMUSampler = objc_getClass("VMUSampler");
-    id sampler = [_VMUSampler alloc];
     SEL _initWithPID = NSSelectorFromString(@"initWithPID:orTask:options:");
-    sampler = ((id (*)(id, SEL, int, task_t, uint64_t))objc_msgSend)(sampler, _initWithPID, 0, task, 0x2);
-
+    SEL _allocSelector = NSSelectorFromString(@"alloc");
+    id uninitializedSampler = ((id (*)(id, SEL))objc_msgSend)(_VMUSampler, _allocSelector);
+    id sampler = ((id (*)(id, SEL, int, task_t, uint64_t))objc_msgSend)(uninitializedSampler, _initWithPID, 0, task, 0x2);
+    
+    // [sampler setSampleRate:1.0];
     SEL _setTimeLimit = NSSelectorFromString(@"setTimeLimit:");
     ((void (*)(id, SEL, double))objc_msgSend)(sampler, _setTimeLimit, 1.0);
+    
+    // [sampler start]
     SEL _start = NSSelectorFromString(@"start");
     ((void (*)(id, SEL))objc_msgSend)(sampler, _start);
+    
+    // [sampler waitUntilDone];
     SEL _waitUntilDone = NSSelectorFromString(@"waitUntilDone");
     ((void (*)(id, SEL))objc_msgSend)(sampler, _waitUntilDone);
     
+    // samples = [sampler samples];
     id samples = ((id (*)(id, SEL))objc_msgSend)(sampler, NSSelectorFromString(@"samples"));
+    if (!samples) {
+        ((void (*)(id, SEL))objc_msgSend)(sampler, NSSelectorFromString(@"release"));
+        return nil;
+    }
 
+    // root = [VMUCallTreeNode rootForSamples:symbolicator:sampler:options:0];
     Class _VMUCallTreeNode = objc_getClass("VMUCallTreeNode");
     SEL _rootForSamples = NSSelectorFromString(@"rootForSamples:symbolicator:sampler:options:");
     id root = ((id(*)(id, SEL, id, CSSymbolicatorRef, id, uint64_t))objc_msgSend)(_VMUCallTreeNode, _rootForSamples, samples, g_state.symbolicator, sampler, 0);
-
+    if (!root) {
+        ((void (*)(id, SEL))objc_msgSend)(sampler, NSSelectorFromString(@"release"));
+        return nil;
+    }
+    
+    // string = [root stringFromCallTreeWithOptions:0x20];
     SEL _stringFromCallTreeWithOptions = NSSelectorFromString(@"stringFromCallTreeWithOptions:");
     NSString *string = ((NSString * (*)(id, SEL, uint64_t))objc_msgSend)(root, _stringFromCallTreeWithOptions, 0x20);
+    
+    ((void (*)(id, SEL))objc_msgSend)(sampler, NSSelectorFromString(@"release"));
     return string;
 }
 

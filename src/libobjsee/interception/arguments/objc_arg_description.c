@@ -115,52 +115,58 @@ const char *lookup_description_for_address(void *address, Class obj_class) {
     if (address == NULL || obj_class == NULL) {
         return NULL;
     }
-    
+
+    const char *result_desc = NULL;
+
     os_unfair_lock_lock(&g_description_cache_lock);
-    
     for (size_t i = 0; i < g_description_cache_count; i += 2) {
         if (g_description_cache[i] == address) {
-            // Found previously cached description
-            const char *cachedDesc = g_description_cache[i + 1];
+            result_desc = (const char *)g_description_cache[i + 1];
             os_unfair_lock_unlock(&g_description_cache_lock);
-            return cachedDesc;
+            return result_desc;
         }
     }
-    
     os_unfair_lock_unlock(&g_description_cache_lock);
-    
-    // Build the description outside the lock
-    const char *description = build_objc_description_for_object(address, obj_class);
-    if (description == NULL) {
+
+    const char *built_desc = build_objc_description_for_object(address, obj_class);
+    if (built_desc == NULL) {
         return NULL;
     }
-    
+
     os_unfair_lock_lock(&g_description_cache_lock);
-    
+
     for (size_t i = 0; i < g_description_cache_count; i += 2) {
         if (g_description_cache[i] == address) {
-            const char *alreadyCached = g_description_cache[i + 1];
+            result_desc = (const char *)g_description_cache[i + 1];
+            free((void*)built_desc);
             os_unfair_lock_unlock(&g_description_cache_lock);
-            return alreadyCached;
+            return result_desc;
         }
     }
-    
+
     if (g_description_cache_count < 1022) {
-        size_t len = strnlen(description, 1023);
-        char *descBuffer = malloc(len + 1);
-        if (descBuffer) {
-            strncpy(descBuffer, description, len);
-            descBuffer[len] = '\0';
-            
+        size_t len = strnlen(built_desc, 1023);
+        char *desc_buffer_copy = (char *)malloc(len + 1);
+
+        if (desc_buffer_copy) {
+            strncpy(desc_buffer_copy, built_desc, len);
+            desc_buffer_copy[len] = '\0';
+
             g_description_cache[g_description_cache_count]     = address;
-            g_description_cache[g_description_cache_count + 1] = descBuffer;
+            g_description_cache[g_description_cache_count + 1] = desc_buffer_copy;
             g_description_cache_count += 2;
-            
-            os_unfair_lock_unlock(&g_description_cache_lock);
-            return descBuffer;
+
+            result_desc = desc_buffer_copy;
+            free((void *)built_desc);
+        }
+        else {
+            result_desc = built_desc;
         }
     }
-    
+    else {
+        result_desc = built_desc;
+    }
+
     os_unfair_lock_unlock(&g_description_cache_lock);
-    return description;
+    return result_desc;
 }

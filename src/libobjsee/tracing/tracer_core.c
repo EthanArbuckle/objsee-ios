@@ -182,11 +182,6 @@ static bool match_wildcard_simd(const char *pattern, const char *str) {
         
         // No wildcard, try SIMD matching of next chunk
         if (*pat_ptr == *str_ptr && *(str_ptr + 1) && *(pat_ptr + 1)) {
-            size_t remaining_str = strlen(str_ptr + 1);
-            size_t remaining_pat = strlen(pat_ptr + 1);
-            size_t chunk_size = remaining_str < remaining_pat ? remaining_str : remaining_pat;
-            if (chunk_size > 15) chunk_size = 15;
-            
             // Load and compare chunks
             uint8x16_t str_vec = vld1q_u8((const uint8_t *)(str_ptr + 1));
             uint8x16_t pat_vec = vld1q_u8((const uint8_t *)(pat_ptr + 1));

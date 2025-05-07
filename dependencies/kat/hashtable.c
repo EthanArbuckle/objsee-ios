@@ -492,7 +492,7 @@ uint64_t hashtable_MurMur3_hash(const void *key, size_t size)
     
     /* Seeds are nulled for now. */
     uint64_t h1 = 0;
-    uint64_t h2 = 0;
+    __unused uint64_t h2 = 0;
     
     const uint64_t c1 = 0x87c37b91114253d5;
     const uint64_t c2 = 0x4cf5ad432745937f;
@@ -576,8 +576,8 @@ void hashtable_print_stats(struct hashtable **ht)
     elements_per_bucket = 0;
     used_buckets = 0;
     variance = 0.0;
-    stdev = 0.0;
-    mean = 0.0;
+//    stdev = 0.0;
+//    mean = 0.0;
     
     h = *ht;
     

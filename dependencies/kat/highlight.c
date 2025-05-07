@@ -315,7 +315,7 @@ char *highlight_line(const char *line, char *hl, size_t str_size)
     struct highlighted_line *high_line;
     size_t tok_size;
     uint64_t keyword_start;
-    uint64_t keyword_end;
+    __unused uint64_t keyword_end;
     
     /* Reset indexes. */
     if (hl != NULL)
@@ -327,7 +327,7 @@ char *highlight_line(const char *line, char *hl, size_t str_size)
         hl = highlight_alloc_line();
     
     keyword_start = 0;
-    keyword_end = 0;
+//    keyword_end = 0;
     
     if (!str_size)
         str_size = strlen(line);

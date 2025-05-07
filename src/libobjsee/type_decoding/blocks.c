@@ -129,7 +129,7 @@ kern_return_t get_block_description(id block, char **out_description) {
         return KERN_RESOURCE_SHORTAGE;
     }
     
-    size_t pos = 0;
+    __unused size_t pos = 0;
     const char *cursor = signature;
     
     while (*cursor != '\0' && strchr("rnNoORV", *cursor) != NULL) {
@@ -184,7 +184,7 @@ kern_return_t get_block_description(id block, char **out_description) {
         }
         else {
             char group[MAX_TYPE_LEN];
-            size_t gpos = 0;
+            __unused size_t gpos = 0;
             group[0] = '\0';
             gpos = append_to_block(group, MAX_TYPE_LEN, gpos, "(");
             gpos = append_to_block(group, MAX_TYPE_LEN, gpos, t);

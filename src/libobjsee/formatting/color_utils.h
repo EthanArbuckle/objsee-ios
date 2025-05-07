@@ -23,6 +23,5 @@
 #define COLOR_RESET "\x1b[0m"
 
 uint8_t get_consistent_color(const char *str, uint8_t start, uint16_t range);
-int write_color(char *buffer, uint8_t color);
 
 #endif // COLOR_UTILS_H

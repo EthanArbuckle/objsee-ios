@@ -314,8 +314,8 @@ static thread_view_t *get_or_create_thread_view(uint64_t thread_id, bool *did_cr
     
     tv->win = newwin(max_y - 2, width, 2, g_ui->thread_count  *(width + BORDER_WIDTH));
     if (tv->win == NULL) {
-        free(tv);
         free(tv->line_buffer);
+        free(tv);
         return NULL;
     }
     
@@ -336,8 +336,8 @@ static thread_view_t *get_or_create_thread_view(uint64_t thread_id, bool *did_cr
     
     tv->win = newwin(max_y - 2, width, 2, g_ui->thread_count * width);
     if (tv->win == NULL) {
-        free(tv);
         free(tv->line_buffer);
+        free(tv);
         printf("Failed to create window\n");
         return NULL;
     }
