@@ -195,34 +195,66 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     }
     
     transport_context_t *ctx = tracer->transport_context;
+    ctx->type = tracer->config.transport;
+    ctx->fd = -1;
+    
     if (pthread_mutex_init(&ctx->write_lock, NULL) != 0) {
         os_log(OS_LOG_DEFAULT, "Failed to create write lock");
         free(ctx);
+        tracer->transport_context = NULL;
         return TRACER_ERROR_INITIALIZATION;
     }
     
-    ctx->type = tracer->config.transport;
+    if (pthread_mutex_init(&ctx->queue.lock, NULL) != 0) {
+        os_log(OS_LOG_DEFAULT, "Failed to create queue.lock");
+        pthread_mutex_destroy(&ctx->write_lock);
+        free(ctx);
+        tracer->transport_context = NULL;
+        return TRACER_ERROR_INITIALIZATION;
+    }
+    
+    if (pthread_cond_init(&ctx->queue.not_empty, NULL) != 0) {
+        pthread_mutex_destroy(&ctx->queue.lock);
+        pthread_mutex_destroy(&ctx->write_lock);
+        free(ctx);
+        tracer->transport_context = NULL;
+        return TRACER_ERROR_INITIALIZATION;
+    }
+    
+    if (pthread_cond_init(&ctx->queue.not_full, NULL) != 0) {
+        pthread_cond_destroy(&ctx->queue.not_empty);
+        pthread_mutex_destroy(&ctx->queue.lock);
+        pthread_mutex_destroy(&ctx->write_lock);
+        free(ctx);
+        tracer->transport_context = NULL;
+        return TRACER_ERROR_INITIALIZATION;
+    }
+    
     ctx->queue.capacity = 10000;
     ctx->queue.messages = calloc(ctx->queue.capacity, sizeof(queued_message_t));
     if (ctx->queue.messages == NULL) {
+        pthread_cond_destroy(&ctx->queue.not_full);
+        pthread_cond_destroy(&ctx->queue.not_empty);
+        pthread_mutex_destroy(&ctx->queue.lock);
         pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
+        tracer->transport_context = NULL;
         return TRACER_ERROR_MEMORY;
     }
 
-    pthread_mutex_init(&ctx->queue.lock, NULL);
-    pthread_cond_init(&ctx->queue.not_full, NULL);
-    pthread_cond_init(&ctx->queue.not_empty, NULL);
-    
     ctx->running = true;
     int thread_err = pthread_create(&ctx->transport_thread, NULL, transport_thread, tracer);
     if (thread_err != 0) {
         os_log(OS_LOG_DEFAULT, "Failed to create transport thread: %s", strerror(thread_err));
         free(ctx->queue.messages);
+        pthread_cond_destroy(&ctx->queue.not_full);
+        pthread_cond_destroy(&ctx->queue.not_empty);
+        pthread_mutex_destroy(&ctx->queue.lock);
+        pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
-        return TRACER_ERROR_INITIALIZATION;
+         tracer->transport_context = NULL;
+         return TRACER_ERROR_INITIALIZATION;
     }
-    pthread_detach(ctx->transport_thread);
     
     tracer_result_t result;
     switch (ctx->type) {
@@ -249,12 +281,27 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     }
     
     if (result != TRACER_SUCCESS) {
-        pthread_mutex_destroy(&ctx->write_lock);
+        os_log(OS_LOG_DEFAULT, "Transport-specific init failed. Shutting down transport thread.");
+        ctx->running = false;
+        pthread_cond_signal(&ctx->queue.not_empty);
+        pthread_join(ctx->transport_thread, NULL);
+
         free(ctx->queue.messages);
+        pthread_cond_destroy(&ctx->queue.not_full);
+        pthread_cond_destroy(&ctx->queue.not_empty);
+        pthread_mutex_destroy(&ctx->queue.lock);
+        pthread_mutex_destroy(&ctx->write_lock);
+
+        if (ctx->fd >= 0 && (ctx->type == TRACER_TRANSPORT_SOCKET || (ctx->type == TRACER_TRANSPORT_FILE && ctx->fd != STDOUT_FILENO))) {
+           close(ctx->fd);
+        }
+
         free(ctx);
+        tracer->transport_context = NULL;
         return result;
     }
     
+    pthread_detach(ctx->transport_thread);
     return TRACER_SUCCESS;
 }
 
