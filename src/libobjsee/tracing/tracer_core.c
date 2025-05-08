@@ -102,7 +102,7 @@ void tracer_set_error(tracer_t *tracer, const char *format, ...) {
     vsnprintf(tracer->last_error, sizeof(tracer->last_error), format, args);
     va_end(args);
     
-//    printf("Error: %s\n", tracer->last_error);
+    printf("Error: %s\n", tracer->last_error);
     os_log(OS_LOG_DEFAULT, "Error:  %s", tracer->last_error);
     pthread_mutex_unlock(&tracer->error_lock);
 }
@@ -149,91 +149,6 @@ static bool match_wildcard(const char *pattern, const char *str) {
     return !*pat_ptr;
 }
 
-
-static bool match_wildcard_simd(const char *pattern, const char *str) {
-//    return match_wildcard(pattern, str);
-    if (!pattern || !str) {
-        return false;
-    }
-    if (!*pattern || strcmp(pattern, "*") == 0) {
-        return true;
-    }
-    
-    const char *str_ptr = str;
-    const char *pat_ptr = pattern;
-    const char *str_star = NULL;
-    const char *pat_star = NULL;
-    
-    while (*str_ptr) {
-        if (*pat_ptr == '*') {
-            // Handle wildcard
-            pat_star = pat_ptr++;
-            str_star = str_ptr;
-            continue;
-        }
-        
-        // If we have a previous wildcard match point and current match fails,
-        // rewind to just after the last wildcard
-        if (*pat_ptr != *str_ptr && pat_star) {
-            pat_ptr = pat_star + 1;
-            str_ptr = ++str_star;
-            continue;
-        }
-        
-        // No wildcard, try SIMD matching of next chunk
-        if (*pat_ptr == *str_ptr && *(str_ptr + 1) && *(pat_ptr + 1)) {
-            // Load and compare chunks
-            uint8x16_t str_vec = vld1q_u8((const uint8_t *)(str_ptr + 1));
-            uint8x16_t pat_vec = vld1q_u8((const uint8_t *)(pat_ptr + 1));
-            uint8x16_t asterisk_vec = vceqq_u8(pat_vec, vdupq_n_u8('*'));
-            uint8x16_t equal = vceqq_u8(str_vec, pat_vec);
-            
-            // Find first mismatch or wildcard
-            uint16x8_t sum = vpaddlq_u8(vorrq_u8(equal, asterisk_vec));
-            uint32x4_t sum2 = vpaddlq_u16(sum);
-            uint64x2_t sum3 = vpaddlq_u32(sum2);
-            uint64_t match_run = vgetq_lane_u64(sum3, 0) + vgetq_lane_u64(sum3, 1);
-            
-            if (match_run > 0) {
-                str_ptr += match_run;
-                pat_ptr += match_run;
-                continue;
-            }
-        }
-        
-        if (*pat_ptr != *str_ptr && !pat_star) {
-            return false;
-        }
-        
-        pat_ptr++;
-        str_ptr++;
-    }
-    
-    while (*str_ptr) {
-        if (*pat_ptr == '*') {
-            pat_star = pat_ptr++;
-            str_star = str_ptr;
-        }
-        else if (*pat_ptr == *str_ptr) {
-            pat_ptr++;
-            str_ptr++;
-        }
-        else if (pat_star) {
-            pat_ptr = pat_star + 1;
-            str_ptr = ++str_star;
-        }
-        else {
-            return false;
-        }
-    }
-    
-    while (*pat_ptr == '*') {
-        pat_ptr++;
-    }
-    
-    return !*pat_ptr;
-}
-
 bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame) {
     if (tracer == NULL || frame == NULL || frame->self_class_name == NULL || frame->selector_name == NULL) {
         return false;
@@ -265,14 +180,14 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
         }
         
         if (filter->class_pattern != NULL) {
-            if (match_wildcard_simd(filter->class_pattern, frame->self_class_name)) {
+            if (match_wildcard(filter->class_pattern, frame->self_class_name)) {
                 pthread_rwlock_unlock(&tracer->filter_lock);
                 return false;
             }
         }
             
         if (filter->method_pattern != NULL) {
-            if (match_wildcard_simd(filter->method_pattern, frame->selector_name)) {
+            if (match_wildcard(filter->method_pattern, frame->selector_name)) {
                 pthread_rwlock_unlock(&tracer->filter_lock);
                 return false;
             }
@@ -337,7 +252,7 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
         // If a class filter is specified
         if (filter->class_pattern != NULL) {
             // And the current class name matches
-            if (!match_wildcard_simd(filter->class_pattern, frame->self_class_name)) {
+            if (!match_wildcard(filter->class_pattern, frame->self_class_name)) {
                 // Then do not trace
                 continue;
             }
@@ -346,7 +261,7 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
         // If a method filter is specified
         if (filter->method_pattern != NULL) {
             // And the current method name does not match
-            if (!match_wildcard_simd(filter->method_pattern, frame->selector_name)) {
+            if (!match_wildcard(filter->method_pattern, frame->selector_name)) {
                 // Then do not trace
                 continue;
             }

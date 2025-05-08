@@ -17,8 +17,6 @@
 #define TRACER_BUFFER_SIZE 2048
 #define INITIAL_STACK_FRAMES 256
 
-#define FREE_IF_NOT_NULL(ptr) if (ptr) { free((void *)ptr); ptr = NULL; }
-
 extern BOOL objc_opt_isKindOfClass(id _Nullable obj, Class _Nullable cls);
 extern size_t malloc_size(const void * _Nonnull);
 extern const char * _Nullable _Block_signature(void * _Nonnull aBlock);

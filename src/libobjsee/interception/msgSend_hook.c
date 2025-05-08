@@ -63,47 +63,48 @@ void free_event_arguments(tracer_event_t *event) {
         return;
     }
     
-    FREE_IF_NOT_NULL(event->method_signature);
+    if (event->method_signature) {
+        vm_deallocate(mach_task_self(), (vm_address_t)event->method_signature, strlen(event->method_signature) + 1);
+        event->method_signature = NULL;
+    }
+    
     if (event->arguments) {
         for (size_t i = 0; i < event->argument_count; i++) {
+            tracer_argument_t *arg = &event->arguments[i];
+            if (arg->type_encoding) {
+                vm_deallocate(mach_task_self(), (vm_address_t)arg->type_encoding, strlen(arg->type_encoding) + 1);
+                arg->type_encoding = NULL;
+            }
             
-            FREE_IF_NOT_NULL(event->arguments[i].type_encoding);
-            FREE_IF_NOT_NULL(event->arguments[i].objc_class_name);
-            FREE_IF_NOT_NULL(event->arguments[i].block_signature);
-            FREE_IF_NOT_NULL(event->arguments[i].description);
+            if (arg->objc_class_name) {
+                vm_deallocate(mach_task_self(), (vm_address_t)arg->objc_class_name, strlen(arg->objc_class_name) + 1);
+                arg->objc_class_name = NULL;
+            }
             
-            event->arguments[i].address = NULL;
-            event->arguments[i].size = 0;
-            event->arguments[i].objc_class = NULL;
+            if (arg->description) {
+                vm_deallocate(mach_task_self(), (vm_address_t)arg->description, strlen(arg->description) + 1);
+                arg->description = NULL;
+            }
+            
+            if (arg->block_signature) {
+                vm_deallocate(mach_task_self(), (vm_address_t)arg->block_signature, strlen(arg->block_signature) + 1);
+                arg->block_signature = NULL;
+            }
         }
-        FREE_IF_NOT_NULL(event->arguments);
+        
+        vm_deallocate(mach_task_self(), (vm_address_t)event->arguments, event->argument_count * sizeof(tracer_argument_t));
+        event->arguments = NULL;
     }
-    event->argument_count = 0;
-}
 
-static kern_return_t stack_make_local_copy(void *stack_ptr, vm_address_t *stack_copy, size_t stack_size) {
-    if (stack_ptr == NULL || stack_copy == NULL) {
-        return KERN_INVALID_ARGUMENT;
-    }
-    
-    vm_address_t copy = 0;
-    kern_return_t kr = vm_allocate(mach_task_self(), &copy, stack_size, VM_FLAGS_ANYWHERE);
-    if (kr != KERN_SUCCESS) {
-        return kr;
-    }
-    
-    kr = vm_write(mach_task_self(), copy, (vm_offset_t)stack_ptr, (mach_msg_type_number_t)stack_size);
-    if (kr != KERN_SUCCESS) {
-        return kr;
-    }
-    
-    kr = vm_protect(mach_task_self(), copy, stack_size, false, VM_PROT_READ | VM_PROT_WRITE);
-    if (kr != KERN_SUCCESS) {
-        return kr;
-    }
-    
-    *stack_copy = copy;
-    return KERN_SUCCESS;
+    event->argument_count = 0;
+    event->formatted_output = NULL;
+    event->class_name = NULL;
+    event->method_name = NULL;
+    event->image_path = NULL;
+    event->thread_id = 0;
+    event->trace_depth = 0;
+    event->real_depth = 0;
+    event->is_class_method = false;
 }
 
 __attribute__((aligned(16), always_inline, hot))
@@ -208,8 +209,8 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
     
     tracer_handle_event(g_tracer_ctx, &event);
     
-    if (event.arguments) {
-        free_event_arguments(&event);
+    if (__builtin_expect(event.arguments != NULL, 1)) {
+         free_event_arguments(&event);
     }
     
     ctx->trace_depth += 1;

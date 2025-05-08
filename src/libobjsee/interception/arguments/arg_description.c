@@ -355,14 +355,22 @@ static kern_return_t _description_for_struct(const tracer_argument_t *arg, trace
         }
     }
     else if (fmt == TRACER_ARG_FORMAT_CLASS) {
-        if (snprintf(out_buf, buf_size, "{%s}", arg->type_encoding) >= buf_size) {
-            return KERN_NO_SPACE;
+        if (arg->type_encoding == NULL) {
+            if (snprintf(out_buf, buf_size, "{%p, <unknown_type>}", arg->address) >= buf_size) {
+                return KERN_NO_SPACE;
+            }
+        }
+        else {
+            // Use the type encoding for the description
+            if (snprintf(out_buf, buf_size, "{%s}", arg->type_encoding) >= buf_size) {
+                return KERN_NO_SPACE;
+            }
         }
     }
     else if (fmt == TRACER_ARG_FORMAT_DESCRIPTIVE) {
         if (arg->type_encoding == NULL) {
             // Fallback to a basic description if the type encoding is missing
-            if (snprintf(out_buf, buf_size, "{%p: %s}", arg->address, arg->type_encoding) >= buf_size) {
+            if (snprintf(out_buf, buf_size, "{%p: <unknown_type>}", arg->address) >= buf_size) {
                 return KERN_NO_SPACE;
             }
         }
