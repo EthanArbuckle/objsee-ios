@@ -191,24 +191,25 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
         .method_signature = NULL,
     };
     
-    vm_address_t stack_copy = 0;
-    size_t stack_size = 1024 * 2;
+    char local_stack_copy_buffer[1024 * 2];
+    size_t stack_size_to_read = sizeof(local_stack_copy_buffer);
+    vm_size_t bytes_read = 0;
+
     bool capture_args = ctx->capture_arguments && ctx->stack_depth <= 32 && strstr(frame->selector_name, ":") != NULL;
     if (__builtin_expect(capture_args, 1)) {
-        if (stack_make_local_copy(stack_ptr, &stack_copy, stack_size) == KERN_SUCCESS) {
-            capture_arguments(g_tracer_ctx, frame, (void *)stack_copy, &event);
+        kern_return_t kr = vm_read_overwrite(mach_task_self(), (vm_address_t)stack_ptr, stack_size_to_read, (vm_address_t)local_stack_copy_buffer, &bytes_read);
+        if (kr == KERN_SUCCESS && bytes_read > 0) {
+            capture_arguments(g_tracer_ctx, frame, local_stack_copy_buffer, &event);
+        }
+        else {
+            printf("Failed to read arg stack: %s\n", mach_error_string(kr));
         }
     }
     
     tracer_handle_event(g_tracer_ctx, &event);
     
-//    if (__builtin_expect(event.arguments != NULL, 1)) {
-//         // TODO: events now uses vm_allocate, this needs to use vm_deallocate
-//         free_event_arguments(&event);
-//    }
-
-    if (stack_copy) {
-        vm_deallocate(mach_task_self(), stack_copy, stack_size);
+    if (event.arguments) {
+        free_event_arguments(&event);
     }
     
     ctx->trace_depth += 1;
