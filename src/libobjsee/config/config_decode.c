@@ -217,7 +217,7 @@ tracer_result_t decode_tracer_config(const char *config_str, tracer_config_t *co
     return TRACER_SUCCESS;
 }
 
-const char *copy_human_readable_config(tracer_config_t config) {
+const char *copy_config_description(tracer_config_t config) {
     const size_t buffer_size = 1024;
     char *formatted = (char *)malloc(buffer_size);
     if (formatted == NULL) {
@@ -359,6 +359,13 @@ const char *copy_human_readable_config(tracer_config_t config) {
     offset += written;
     
     written = snprintf(formatted + offset, buffer_size - offset, "Arg format: %d, ", config.format.args);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Launched from DYLD_INSERT_LIB: %d, ", config.from_dyld_insert);
     if (written < 0 || written >= buffer_size - offset) {
         free(formatted);
         return NULL;

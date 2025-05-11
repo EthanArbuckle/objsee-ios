@@ -27,6 +27,6 @@ tracer_result_t decode_tracer_config(const char *config_str, tracer_config_t *co
  * @param config The configuration to describe
  * @return const char* A human readable description of the configuration. This string must be freed by the caller.
  */
-const char *copy_human_readable_config(tracer_config_t config);
+const char *copy_config_description(tracer_config_t config);
 
 #endif // CONFIG_DECODE_H
