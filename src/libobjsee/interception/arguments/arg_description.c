@@ -26,7 +26,9 @@ static kern_return_t _description_for_unsigned_long_long(const tracer_argument_t
 static kern_return_t _description_for_char_ptr(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
 static kern_return_t _description_for_unsigned_char(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
 static kern_return_t _description_for_char(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
-
+static kern_return_t _description_for_short(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
+static kern_return_t _description_for_unsigned_int(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
+static kern_return_t _description_for_int(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
 
 kern_return_t description_for_argument(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size) {
     if (arg == NULL || out_buf == NULL || buf_size == 0) {
@@ -93,7 +95,25 @@ kern_return_t description_for_argument(const tracer_argument_t *arg, tracer_argu
             }
             return KERN_INVALID_ARGUMENT;
         }
+        
+        case 's': {
+            return _description_for_short(arg, fmt, out_buf, buf_size);
+        }
+        
+        case 'v': {
+            // void type, no description needed
+            out_buf[0] = '\0';
+            return KERN_SUCCESS;
+        }
             
+        case 'I': {
+            return _description_for_unsigned_int(arg, fmt, out_buf, buf_size);
+        }
+            
+        case 'i': {
+            return _description_for_int(arg, fmt, out_buf, buf_size);
+        }
+        
         default: {
             return KERN_INVALID_ARGUMENT;
         }
@@ -543,5 +563,56 @@ static kern_return_t _description_for_char(const tracer_argument_t *arg, tracer_
         }
     }
     
+    return KERN_SUCCESS;
+}
+
+static kern_return_t _description_for_short(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size) {
+    if (arg == NULL || out_buf == NULL || buf_size == 0) {
+        return KERN_INVALID_ARGUMENT;
+    }
+
+    if (fmt == TRACER_ARG_FORMAT_NONE) {
+        out_buf[0] = '\0';
+        return KERN_SUCCESS;
+    }
+
+    if (snprintf(out_buf, buf_size, "%hd", *(short *)arg->address) >= buf_size) {
+        return KERN_NO_SPACE;
+    }
+
+    return KERN_SUCCESS;
+}
+
+static kern_return_t _description_for_unsigned_int(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size) {
+    if (arg == NULL || out_buf == NULL || buf_size == 0) {
+        return KERN_INVALID_ARGUMENT;
+    }
+
+    if (fmt == TRACER_ARG_FORMAT_NONE) {
+        out_buf[0] = '\0';
+        return KERN_SUCCESS;
+    }
+
+    if (snprintf(out_buf, buf_size, "%u", *(unsigned int *)arg->address) >= buf_size) {
+        return KERN_NO_SPACE;
+    }
+
+    return KERN_SUCCESS;
+}
+
+static kern_return_t _description_for_int(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size) {
+    if (arg == NULL || out_buf == NULL || buf_size == 0) {
+        return KERN_INVALID_ARGUMENT;
+    }
+
+    if (fmt == TRACER_ARG_FORMAT_NONE) {
+        out_buf[0] = '\0';
+        return KERN_SUCCESS;
+    }
+
+    if (snprintf(out_buf, buf_size, "%d", *(int *)arg->address) >= buf_size) {
+        return KERN_NO_SPACE;
+    }
+
     return KERN_SUCCESS;
 }

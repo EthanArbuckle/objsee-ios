@@ -37,10 +37,16 @@ static uint64_t delay_period_ms = 1000;
 @interface RuntimeEntryShim : NSObject
 @end
 
+__attribute__((constructor)) void libobjsee_init(void) {
+    write(STDOUT_FILENO, "libobjsee loaded\n", 22);
+}
+    
 @implementation RuntimeEntryShim
 
 + (void)load {
-    os_log(OS_LOG_DEFAULT, "objsee loaded");
+    char log_message[64];
+    snprintf(log_message, sizeof(log_message), "objsee loaded with delay %llu ms\n", delay_period_ms);
+    write(STDOUT_FILENO, log_message, strlen(log_message));
     
     // The cli tool provides the configuration for the tracer via an environment variable
     const char *encoded_config_string = getenv(CONFIG_ENV_VAR);

@@ -14,11 +14,14 @@
 
 static tracer_config_t config;
 
-void objsee_main(const char *encoded_config_string) {
-    os_log(OS_LOG_DEFAULT, "Loading libobjsee tracer with encoded config");
-    
+void tracer_event_handler(tracer_t *tracer, tracer_event_t *event, void *context) {
+    // Handle the event here
+    NSLog(@"Received event: %s", event->class_name);
+}
+
+void init_tracing(void) {
     config = (tracer_config_t) {
-        .transport = TRACER_TRANSPORT_SOCKET,
+        .transport = TRACER_TRANSPORT_STDOUT,
         .format = (tracer_format_options_t) {
             .include_colors = false,
             .include_formatted_trace = true,
@@ -46,7 +49,7 @@ void objsee_main(const char *encoded_config_string) {
         return;
     }
 
-    tracer_include_class(tracer, "*");
+    tracer_set_output_handler(tracer, (tracer_event_handler_t *)tracer_event_handler, NULL);
 
     tracer_result_t ret = -1;
     for (int attempt = 0; attempt < 3; attempt++) {
@@ -68,7 +71,7 @@ void objsee_main(const char *encoded_config_string) {
 
 int main(int argc, char * argv[]) {
     
-    objsee_main(NULL);
+    init_tracing();
 
     NSString * appDelegateClassName;
     @autoreleasepool {

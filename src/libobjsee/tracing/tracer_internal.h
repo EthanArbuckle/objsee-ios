@@ -93,6 +93,10 @@ void tracer_set_error(tracer_t * _Nonnull tracer, const char * _Nonnull format, 
 
 __attribute__((always_inline, hot))
 static inline uint32_t fnv1a_hash(const char * _Nonnull str) {
+    if (str == NULL || *str == '\0') {
+        return 0;
+    }
+
     uint32_t hash = 2166136261u;
     while (*str) {
         hash ^= (uint8_t)*str++;

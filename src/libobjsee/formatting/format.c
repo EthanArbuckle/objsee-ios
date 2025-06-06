@@ -6,16 +6,19 @@
 //
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <dlfcn.h>
+#include "encoding_description.h"
 #include <json-c/json_object.h>
 #include "tracer_internal.h"
-#include "encoding_description.h"
 #include "color_utils.h"
-#include <dlfcn.h>
 
-#define STATIC_BUFFER_SIZE 1024
-#define FORMATTED_EVENT_BUF_SIZE 1024
-#define ASSEMBLED_METHOD_BUF_SIZE 1024
+#define EVENT_FORMAT_BUF_SIZE 4096     // Size of buffer used for building formatted strings for trace events
+#define BINDAT_FORMAT_BUF_SIZE 1024    // Size of the shared stack buffer each thread uses to build formatted strings for binary data
+#define METHARGS_FORMAT_BUF_SIZE 2048  // Size of buffer used for combining selector names with argument descriptions
 
+#if EVENT_FORMAT_BUF_SIZE < BINDAT_FORMAT_BUF_SIZE || EVENT_FORMAT_BUF_SIZE < METHARGS_FORMAT_BUF_SIZE
+#error "EVENT_FORMAT_BUF_SIZE must be larger than BINDAT_FORMAT_BUF_SIZE and METHARGS_FORMAT_BUF_SIZE"
+#endif
 
 static inline kern_return_t fast_append(char **ptr, const char *end, const char *format, ...) {
     if (!ptr || !*ptr || !end || format == NULL) {
@@ -23,7 +26,7 @@ static inline kern_return_t fast_append(char **ptr, const char *end, const char 
     }
     
     ptrdiff_t remaining = end - *ptr;
-    if (remaining < 0 || remaining > FORMATTED_EVENT_BUF_SIZE) {
+    if (remaining < 0 || remaining > EVENT_FORMAT_BUF_SIZE) {
         return KERN_NO_SPACE;
     }
     
@@ -54,16 +57,16 @@ static inline kern_return_t fast_write_color(char **ptr, const char *end, uint8_
 }
 
 __unused static char *format_binary_data(const char *data, size_t size) {
-    static __thread char hex_buffer[STATIC_BUFFER_SIZE];
+    static __thread char hex_buffer[BINDAT_FORMAT_BUF_SIZE];
     size_t display_size = size > 16 ? 16 : size;
     
-    int written = snprintf(hex_buffer, STATIC_BUFFER_SIZE, "<binary:%zu bytes: ", size);
-    if (written < 0 || written >= STATIC_BUFFER_SIZE) {
+    int written = snprintf(hex_buffer, BINDAT_FORMAT_BUF_SIZE, "<binary:%zu bytes: ", size);
+    if (written < 0 || written >= BINDAT_FORMAT_BUF_SIZE) {
         return strdup("<format error>");
     }
     
     char *hex_ptr = hex_buffer + written;
-    int remaining = STATIC_BUFFER_SIZE - written;
+    int remaining = BINDAT_FORMAT_BUF_SIZE - written;
     
     for (size_t i = 0; i < display_size && remaining > 2; i++) {
         written = snprintf(hex_ptr, remaining, "%02x", (unsigned char)data[i]);
@@ -116,104 +119,19 @@ static const char *demangle_swift(const char *name) {
     return name;
 }
 
-const char *build_formatted_event_str(const tracer_event_t *event, tracer_format_options_t format) {
-    if (event == NULL || event->class_name == NULL || event->method_name == NULL) {
+const char *_do_format(char **inptr, const char *end, const char *class_name, char *assembled_method_name_buf, const tracer_event_t *event, tracer_format_options_t format) {
+    char *ptr = *inptr;
+    if (class_name && fast_append(&ptr, end, "%s[%s ", event->is_class_method ? "+" : "-", class_name) != KERN_SUCCESS) {
         return NULL;
     }
     
-    char formatted_event_buf[FORMATTED_EVENT_BUF_SIZE] = {0};
-    char assembled_method_name_buf[ASSEMBLED_METHOD_BUF_SIZE] = {0};
-    char *ptr = formatted_event_buf;
-    const char *const end = formatted_event_buf + FORMATTED_EVENT_BUF_SIZE;
-    
-    // Thread ID formatting
-    if (format.include_thread_id) {
-        if (format.include_colors) {
-            uint8_t thread_color = COLOR_THREAD_START + (event->thread_id % (COLOR_THREAD_END - COLOR_THREAD_START));
-            if (fast_write_color(&ptr, end, thread_color) != KERN_SUCCESS) {
-                return NULL;
-            }
-        }
-        
-        if (fast_append(&ptr, end, "[0x%x] ", event->thread_id) != KERN_SUCCESS) {
-            return NULL;
-        }
-        
-        if (format.include_colors) {
-            if (fast_append(&ptr, end, COLOR_RESET) != KERN_SUCCESS) {
-                return NULL;
-            }
-        }
-    }
-    
-    // Indentation
-    if (format.include_indents) {
-        uint8_t depth_color = format.include_colors ? COLOR_DEPTH_START + (event->trace_depth % (COLOR_DEPTH_END - COLOR_DEPTH_START)) : 0;
-        
-        for (uint32_t i = 0; i < event->trace_depth; i++) {
-            uint32_t spaces = format.variable_separator_spacing ? spaces_between_indent_level(i) : format.static_separator_spacing;
-            
-            for (uint32_t j = 0; j < spaces; j++) {
-                if (fast_append(&ptr, end, format.indent_char) != KERN_SUCCESS) {
-                    return NULL;
-                }
-            }
-            
-            if (format.include_indent_separators) {
-                if (format.include_colors) {
-                    if (fast_write_color(&ptr, end, depth_color) != KERN_SUCCESS) {
-                        return NULL;
-                    }
-                }
-                
-                if (fast_append(&ptr, end, format.indent_separator_char) != KERN_SUCCESS) {
-                    return NULL;
-                }
-                
-                if (format.include_colors) {
-                    if (fast_append(&ptr, end, COLOR_RESET) != KERN_SUCCESS) {
-                        return NULL;
-                    }
-                }
-            }
-        }
-        
-        if (event->trace_depth > 0) {
-            if (fast_append(&ptr, end, format.indent_char) != KERN_SUCCESS) {
-                return NULL;
-            }
-        }
-    }
-    
-    // Class name and method type
-    const char *class_name = event->class_name;
-    if (class_name && strncmp(class_name, "_Tt", 3) == 0) {
-        // Demangle Swift class names
-        const char *demangled = demangle_swift(class_name);
-        if (demangled) {
-            free((void *)class_name);
-            class_name = demangled;
-        }
-    }
-    
-    if (format.include_colors && class_name) {
-        uint8_t class_color = get_consistent_color(class_name, COLOR_CLASS_START, COLOR_CLASS_RANGE);
-        if (fast_write_color(&ptr, end, class_color) != KERN_SUCCESS) {
-            return NULL;
-        }
-    }
-    
-    if (fast_append(&ptr, end, "%s[%s ", event->is_class_method ? "+" : "-", class_name) != KERN_SUCCESS) {
+    if (strlcpy(assembled_method_name_buf, event->method_name, METHARGS_FORMAT_BUF_SIZE) >= METHARGS_FORMAT_BUF_SIZE) {
         return NULL;
     }
     
-    if (strlcpy(assembled_method_name_buf, event->method_name, ASSEMBLED_METHOD_BUF_SIZE) >= ASSEMBLED_METHOD_BUF_SIZE) {
-        return NULL;
-    }
-    
-    // Process method parts and arguments
     size_t arg_index = 0;
-    char *method_part = strtok(assembled_method_name_buf, ":");
+    char *method_part_ctx = NULL;
+    char *method_part = strtok_r(assembled_method_name_buf, ":", &method_part_ctx);
     while (method_part != NULL) {
         if (format.include_colors) {
             uint8_t method_color = get_consistent_color(event->method_name, COLOR_METHOD_START, COLOR_METHOD_RANGE);
@@ -226,8 +144,9 @@ const char *build_formatted_event_str(const tracer_event_t *event, tracer_format
             return NULL;
         }
         
-        const char *remaining = event->method_name + (method_part - assembled_method_name_buf);
-        if (remaining && strchr(remaining, ':')) {
+        const char *original_method_name_ptr = event->method_name + (method_part - assembled_method_name_buf);
+        if (original_method_name_ptr < event->method_name + strlen(event->method_name) &&
+            strchr(original_method_name_ptr, ':')) {
             if (fast_append(&ptr, end, ":") != KERN_SUCCESS) {
                 return NULL;
             }
@@ -289,14 +208,12 @@ const char *build_formatted_event_str(const tracer_event_t *event, tracer_format
                     return NULL;
                 }
             }
-            
             arg_index++;
         }
-        
-        method_part = strtok(NULL, ":");
+        method_part = strtok_r(NULL, ":", &method_part_ctx);
     }
     
-    if (format.include_colors) {
+    if (format.include_colors && event->class_name) {
         uint8_t class_color = get_consistent_color(event->class_name, COLOR_CLASS_START, COLOR_CLASS_RANGE);
         if (fast_write_color(&ptr, end, class_color) != KERN_SUCCESS) {
             return NULL;
@@ -317,6 +234,108 @@ const char *build_formatted_event_str(const tracer_event_t *event, tracer_format
         if (fast_append(&ptr, end, COLOR_RESET) != KERN_SUCCESS) {
             return NULL;
         }
+    }
+    *inptr = ptr;
+    return *inptr;
+}
+
+const char *build_formatted_event_str(const tracer_event_t *event, tracer_format_options_t format) {
+    if (event == NULL || event->class_name == NULL || event->method_name == NULL) {
+        return NULL;
+    }
+    
+    char formatted_event_buf[EVENT_FORMAT_BUF_SIZE] = {0};
+    char assembled_method_name_buf[METHARGS_FORMAT_BUF_SIZE] = {0};
+    char *ptr = formatted_event_buf;
+    const char *const end = formatted_event_buf + EVENT_FORMAT_BUF_SIZE;
+    
+    // Thread ID formatting
+    if (format.include_thread_id) {
+        if (format.include_colors) {
+            uint8_t thread_color = COLOR_THREAD_START + (event->thread_id % (COLOR_THREAD_END - COLOR_THREAD_START));
+            if (fast_write_color(&ptr, end, thread_color) != KERN_SUCCESS) {
+                return NULL;
+            }
+        }
+        
+        if (fast_append(&ptr, end, "[0x%x] ", event->thread_id) != KERN_SUCCESS) {
+            return NULL;
+        }
+        
+        if (format.include_colors) {
+            if (fast_append(&ptr, end, COLOR_RESET) != KERN_SUCCESS) {
+                return NULL;
+            }
+        }
+    }
+    
+    // Indentation
+    if (format.include_indents) {
+        uint8_t depth_color = format.include_colors ? COLOR_DEPTH_START + (event->trace_depth % (COLOR_DEPTH_END - COLOR_DEPTH_START)) : 0;
+        
+        for (uint32_t i = 0; i < event->trace_depth; i++) {
+            uint32_t spaces = format.variable_separator_spacing ? spaces_between_indent_level(i) : format.static_separator_spacing;
+            
+            for (uint32_t j = 0; j < spaces; j++) {
+                if (fast_append(&ptr, end, format.indent_char) != KERN_SUCCESS) {
+                    return NULL;
+                }
+            }
+            
+            if (format.include_indent_separators) {
+                if (format.include_colors) {
+                    if (fast_write_color(&ptr, end, depth_color) != KERN_SUCCESS) {
+                        return NULL;
+                    }
+                }
+                
+                if (fast_append(&ptr, end, format.indent_separator_char) != KERN_SUCCESS) {
+                    return NULL;
+                }
+                
+                if (format.include_colors) {
+                    if (fast_append(&ptr, end, COLOR_RESET) != KERN_SUCCESS) {
+                        return NULL;
+                    }
+                }
+            }
+        }
+        
+        if (event->trace_depth > 0) {
+            if (fast_append(&ptr, end, format.indent_char) != KERN_SUCCESS) {
+                return NULL;
+            }
+        }
+    }
+    
+    // Class name and method type
+    
+    // goal is to have var class_name contain demangled name if applicable otherwise original event class_name
+    const char *class_name = event->class_name;
+    char *demangled_name_to_free = NULL;
+    if (class_name && strncmp(class_name, "_Tt", 3) == 0) {
+        // Demangle Swift class names
+        const char *demangled_name = demangle_swift(class_name);
+        if (demangled_name && demangled_name != event->class_name) {
+            class_name = demangled_name;
+            demangled_name_to_free = (char *)demangled_name;
+        }
+    }
+    
+    if (format.include_colors && class_name) {
+        uint8_t class_color = get_consistent_color(class_name, COLOR_CLASS_START, COLOR_CLASS_RANGE);
+        if (fast_write_color(&ptr, end, class_color) != KERN_SUCCESS) {
+            if (demangled_name_to_free) {
+                free(demangled_name_to_free);
+            }
+            return NULL;
+        }
+    }
+    
+    _do_format(&ptr, end, class_name, assembled_method_name_buf, event, format);
+    
+    if (demangled_name_to_free) {
+        free(demangled_name_to_free);
     }
     
     return strdup(formatted_event_buf);
@@ -375,7 +394,7 @@ const char *build_json_event_str(const tracer_t *tracer, const tracer_event_t *e
                         tracer_set_error((tracer_t *)tracer, "Argument type encoding is NULL");
                         continue;
                     }
-
+                    
                     json_object *arg = json_object_new_object();
                     if (arg == NULL) {
                         json_object_put(args_array);

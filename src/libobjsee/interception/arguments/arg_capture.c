@@ -206,7 +206,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             
             char description_buf[1024];
             if (description_for_argument(event_arg, g_tracer_ctx->config.format.args, description_buf, sizeof(description_buf)) != KERN_SUCCESS) {
-                printf("Failed to get description for basic argument %d of type %s\n", i, event_arg->type_encoding);
+                printf("Failed to get description for basic argument %d of type %s. class: %s, method: %s, method signature: %s\n", i, event_arg->type_encoding, event->class_name, event->method_name, event->method_signature);
                 vm_deallocate(mach_task_self(), arg_value_buf, event_arg->size);
                 event_arg->address = (void *)original_arg_address;
                 continue;

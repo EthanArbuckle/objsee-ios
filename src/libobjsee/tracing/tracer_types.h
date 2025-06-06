@@ -154,7 +154,7 @@ typedef struct {
     
     tracer_event_handler_t *event_handler;
     void *event_handler_context;
-    bool came_from_envvar;
+    bool from_dyld_insert;
 } tracer_config_t;
 
 typedef enum {

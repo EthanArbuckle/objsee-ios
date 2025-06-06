@@ -214,6 +214,7 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     }
     
     if (pthread_cond_init(&ctx->queue.not_empty, NULL) != 0) {
+        os_log(OS_LOG_DEFAULT, "Failed to create queue.not_empty");
         pthread_mutex_destroy(&ctx->queue.lock);
         pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
@@ -222,6 +223,7 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     }
     
     if (pthread_cond_init(&ctx->queue.not_full, NULL) != 0) {
+        os_log(OS_LOG_DEFAULT, "Failed to create queue.not_full");
         pthread_cond_destroy(&ctx->queue.not_empty);
         pthread_mutex_destroy(&ctx->queue.lock);
         pthread_mutex_destroy(&ctx->write_lock);
@@ -267,10 +269,15 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
             result = init_socket_transport(tracer, config);
             break;
         }
-        case TRACER_TRANSPORT_STDOUT:
-        case TRACER_TRANSPORT_FILE:
+        case TRACER_TRANSPORT_STDOUT: {
+            ctx->fd = STDOUT_FILENO;
+            result = TRACER_SUCCESS;
+            break;
+        }
+        case TRACER_TRANSPORT_FILE: {
             result = init_file_transport(tracer, config);
             break;
+        }
         case TRACER_TRANSPORT_CUSTOM: {
             ctx->custom_handle = config->custom_context;
             result = TRACER_SUCCESS;
@@ -281,21 +288,6 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     }
     
     if (result != TRACER_SUCCESS) {
-        os_log(OS_LOG_DEFAULT, "Transport-specific init failed. Shutting down transport thread.");
-        ctx->running = false;
-        pthread_cond_signal(&ctx->queue.not_empty);
-        pthread_join(ctx->transport_thread, NULL);
-
-        free(ctx->queue.messages);
-        pthread_cond_destroy(&ctx->queue.not_full);
-        pthread_cond_destroy(&ctx->queue.not_empty);
-        pthread_mutex_destroy(&ctx->queue.lock);
-        pthread_mutex_destroy(&ctx->write_lock);
-
-        if (ctx->fd >= 0 && (ctx->type == TRACER_TRANSPORT_SOCKET || (ctx->type == TRACER_TRANSPORT_FILE && ctx->fd != STDOUT_FILENO))) {
-           close(ctx->fd);
-        }
-
         free(ctx);
         tracer->transport_context = NULL;
         return result;
