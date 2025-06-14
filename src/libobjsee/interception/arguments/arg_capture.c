@@ -86,9 +86,10 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             continue;
         }
         
-        char *arg_type = method_copyArgumentType(method, i);
-        if (arg_type == NULL) {
-            printf("Failed to get type encoding for arg %d\n", i);
+        char arg_type[256];
+        method_getArgumentType(method, i, arg_type, sizeof(arg_type));
+        if (arg_type[0] == '\0') {
+            printf("Failed to get type encoding for argument %d\n", i);
             continue;
         }
         
@@ -98,8 +99,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             memcpy((void *)type_copy, arg_type, type_len);
             event_arg->type_encoding = (const char *)type_copy;
         }
-        free(arg_type);
-        
+
         if (event_arg->type_encoding == NULL) {
             continue;
         }
