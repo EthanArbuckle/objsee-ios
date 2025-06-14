@@ -126,6 +126,18 @@ void tracer_include_image(tracer_t *tracer, const char *image_pattern) {
     filter->exclude = false;
 }
 
+void tracer_exclude_image(tracer_t *tracer, const char *image_pattern) {
+    if (tracer->config.filter_count >= TRACER_MAX_FILTERS) {
+        return;
+    }
+
+    tracer_filter_t *filter = &tracer->config.filters[tracer->config.filter_count++];
+    filter->image_pattern = image_pattern ? strdup(image_pattern) : NULL;
+    filter->class_pattern = NULL;
+    filter->method_pattern = NULL;
+    filter->exclude = true;
+}
+
 void tracer_set_output(tracer_t *tracer, tracer_transport_type_t output) {
     if (tracer) {
         tracer->config.transport = output;

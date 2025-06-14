@@ -149,27 +149,55 @@ static bool match_wildcard(const char *pattern, const char *str) {
     return !*pat_ptr;
 }
 
+typedef enum {
+    NOT_NEEDED,
+    NEEDED_FOR_INCLUDE,
+    NEEDED_FOR_EXCLUDE
+} image_path_needed_t;
+
 bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame) {
     if (tracer == NULL || frame == NULL || frame->self_class_name == NULL || frame->selector_name == NULL) {
         return false;
     }
-    
+        
     pthread_rwlock_rdlock(&tracer->filter_lock);
+    
+    // Image path resolution is deferred until/if needed by a filter
+    image_path_needed_t image_path_needed = NOT_NEEDED;
+    for (size_t i = 0; i < tracer->config.filter_count; i++) {
+        const tracer_filter_t *filter = &tracer->config.filters[i];
+        if (filter->image_pattern == NULL) {
+            image_path_needed = NOT_NEEDED;
+        }
+        else if (filter->image_pattern && filter->custom_filter) {
+            // Always need image path for custom filters
+            image_path_needed = NEEDED_FOR_EXCLUDE;
+        }
+        else if (filter->image_pattern != NULL && filter->exclude) {
+            image_path_needed = NEEDED_FOR_EXCLUDE;
+        }
+        else if (filter->image_pattern != NULL && !filter->exclude) {
+            image_path_needed = NEEDED_FOR_INCLUDE;
+        }
+    }
+    
+    void (^resolve_image_path)(void) = ^{
+        if (frame->image_path == NULL) {
+            frame->image_path = class_getImageName(frame->self_class);
+        }
+    };
+    
+    // If the image path is needed for any EXCLUDE filter.
+    // INCLUDE is still deferred because trace decision may be decided during the EXCLUDE pass
+    if (image_path_needed == NEEDED_FOR_EXCLUDE) {
+        resolve_image_path();
+    }
     
     for (size_t i = 0; i < tracer->config.filter_count; i++) {
         // This pass only considers exclusion filters
         const tracer_filter_t *filter = &tracer->config.filters[i];
         if (filter->exclude == false) {
             continue;
-        }
-        
-        // If the image path has not been resolved
-        if (frame->image_path == NULL) {
-            // And the filter calls for the image path
-            if (filter->image_pattern != NULL || filter->custom_filter != NULL) {
-                // Then fetch the image path
-                frame->image_path = class_getImageName(frame->self_class);
-            }
         }
         
         if (filter->image_pattern != NULL && frame->image_path != NULL) {
@@ -194,6 +222,10 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
         }
     }
     
+    if (image_path_needed == NEEDED_FOR_INCLUDE) {
+        resolve_image_path();
+    }
+    
     bool should_trace = false;
     for (size_t i = 0; i < tracer->config.filter_count; i++) {
         // This pass only considers inclusion filters
@@ -204,15 +236,6 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
         
         if (should_trace) {
             break;
-        }
-        
-        // If the image path has not been resolved
-        if (frame->image_path == NULL) {
-            // And the filter calls for the image path
-            if (filter->image_pattern != NULL || filter->custom_filter != NULL) {
-                // Then fetch the image path
-                frame->image_path = class_getImageName(frame->self_class);
-            }
         }
         
         if (filter->custom_filter != NULL) {

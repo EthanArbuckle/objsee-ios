@@ -43,6 +43,7 @@ void tracer_exclude_class(tracer_t *tracer, const char *class_pattern);
 void tracer_include_method(tracer_t *tracer, const char *method_pattern);
 void tracer_exclude_method(tracer_t *tracer, const char *method_pattern);
 void tracer_include_image(tracer_t *tracer, const char *image_pattern);
+void tracer_exclude_image(tracer_t *tracer, const char *image_pattern);
 
 tracer_result_t tracer_add_filter(tracer_t *tracer, const tracer_filter_t *filter);
 tracer_result_t tracer_start(tracer_t *tracer);
