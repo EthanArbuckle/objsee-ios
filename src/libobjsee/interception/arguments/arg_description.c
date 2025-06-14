@@ -158,20 +158,26 @@ static kern_return_t _description_for_id(const tracer_argument_t *arg, tracer_ar
             
             // Handle blocks
             if (strcmp(arg->type_encoding, "@?") == 0) {
-                
                 char *decoded_block_signature = NULL;
-                if (get_block_description(*(id *)arg->address, &decoded_block_signature) != KERN_SUCCESS) {
+                kern_return_t kr = get_block_description(*(id *)arg->address, &decoded_block_signature);
+                if (kr != KERN_SUCCESS || decoded_block_signature == NULL || strlcpy(out_buf, decoded_block_signature, buf_size) >= buf_size) {
+                    if (decoded_block_signature) {
+                        free(decoded_block_signature);
+                    }
+                    
                     if (snprintf(out_buf, buf_size, "<Block: %p>", arg->address) >= buf_size) {
                         return KERN_NO_SPACE;
                     }
-                }
-                else {
-                    if (snprintf(out_buf, buf_size, "%s", decoded_block_signature) >= buf_size) {
-                        return KERN_NO_SPACE;
-                    }
                     
-                    free(decoded_block_signature);
+                    return kr;
                 }
+            
+                if (snprintf(out_buf, buf_size, "<%p: %s>", arg->address, decoded_block_signature) >= buf_size) {
+                    free(decoded_block_signature);
+                    return KERN_NO_SPACE;
+                }
+                
+                free(decoded_block_signature);
                 break;
             }
             
