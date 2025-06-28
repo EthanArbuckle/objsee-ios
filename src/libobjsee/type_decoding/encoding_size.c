@@ -170,9 +170,40 @@ static size_t parse_type_and_advance(const char **cursorPtr, size_t *alignmentOu
             size = sizeof(void *);
             alignment = _Alignof(void *);
             c++;
-            (void)parse_type_and_advance(&c, NULL);
+            parse_type_and_advance(&c, NULL);
             break;
             
+        case '[': {
+            c++;
+            char *end_ptr;
+            long count = strtol(c, &end_ptr, 10);
+            if (count <= 0 || end_ptr == c) {
+                size = 0;
+                const char *closing_bracket = strchr(c, ']');
+                if (closing_bracket) {
+                    c = closing_bracket + 1;
+                }
+                
+                break;
+            }
+            c = end_ptr;
+            
+            size_t element_align = 1;
+            size_t element_size = parse_type_and_advance(&c, &element_align);
+            if (element_size == 0) {
+                size = 0;
+                break;
+            }
+            
+            size = count * element_size;
+            alignment = element_align;
+            if (*c == ']') {
+                c++;
+            }
+
+            break;
+        }
+
         case '{': case '(': {
             char openDelim = *c;
             c++;

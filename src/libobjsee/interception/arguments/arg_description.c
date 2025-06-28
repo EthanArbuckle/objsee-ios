@@ -29,13 +29,19 @@ static kern_return_t _description_for_char(const tracer_argument_t *arg, tracer_
 static kern_return_t _description_for_short(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
 static kern_return_t _description_for_unsigned_int(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
 static kern_return_t _description_for_int(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
+static kern_return_t _description_for_array(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
 
 kern_return_t description_for_argument(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size) {
     if (arg == NULL || out_buf == NULL || buf_size == 0) {
         return KERN_INVALID_ARGUMENT;
     }
     
-    switch (arg->type_encoding[0]) {
+    const char *type_ptr = arg->type_encoding;
+    while (*type_ptr == 'r' || *type_ptr == 'n' || *type_ptr == 'N' || *type_ptr == 'o' || *type_ptr == 'O' || *type_ptr == 'V') {
+        type_ptr++;
+    }
+    
+    switch (type_ptr[0]) {
         case '@': {
             return _description_for_id(arg, fmt, out_buf, buf_size);
         }
@@ -114,6 +120,10 @@ kern_return_t description_for_argument(const tracer_argument_t *arg, tracer_argu
             return _description_for_int(arg, fmt, out_buf, buf_size);
         }
         
+        case '[': {
+            return _description_for_array(arg, fmt, out_buf, buf_size);
+        }
+            
         default: {
             return KERN_INVALID_ARGUMENT;
         }
@@ -617,5 +627,33 @@ static kern_return_t _description_for_int(const tracer_argument_t *arg, tracer_a
         return KERN_NO_SPACE;
     }
 
+    return KERN_SUCCESS;
+}
+
+static kern_return_t _description_for_array(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size) {
+    if (arg == NULL || out_buf == NULL || buf_size == 0) {
+        return KERN_INVALID_ARGUMENT;
+    }
+
+    if (fmt == TRACER_ARG_FORMAT_NONE) {
+        out_buf[0] = '\0';
+        return KERN_SUCCESS;
+    }
+
+    if (buf_size < (arg->size * 2 + 3)) {
+        return KERN_NO_SPACE;
+    }
+
+    char *buf_ptr = out_buf;
+    buf_ptr += snprintf(buf_ptr, buf_size, "0x");
+    unsigned char *data = (unsigned char *)arg->address;
+    for (size_t i = 0; i < arg->size; i++) {
+        if ((size_t)(buf_ptr - out_buf) >= buf_size - 3) {
+            break;
+        }
+
+        buf_ptr += snprintf(buf_ptr, buf_size - (buf_ptr - out_buf), "%02x", data[i]);
+    }
+    
     return KERN_SUCCESS;
 }
