@@ -23,7 +23,14 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
         return;
     }
     
-    Method method = class_getInstanceMethod(frame->self_class, frame->_cmd);
+    Method method;
+    if (frame->selector_is_class_method) {
+        method = class_getClassMethod(frame->self_class, frame->_cmd);
+    }
+    else {
+        method = class_getInstanceMethod(frame->self_class, frame->_cmd);
+    }
+    
     if (method == NULL) {
         return;
     }
