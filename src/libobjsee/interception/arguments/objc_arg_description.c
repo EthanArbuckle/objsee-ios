@@ -89,22 +89,21 @@ static const char *build_objc_description_for_object(void *address, Class obj_cl
     
     // For string types, use objc style quoting (@"string")
     if (objc_opt_isKindOfClass(object, objc_getClass("NSString"))) {
-        char *quoted_string = malloc(strlen(utf8String) + 3);
+        size_t original_len = strlen(utf8String);
+        const char *newline_pos = strchr(utf8String, '\n');
+        size_t content_len = newline_pos ? (newline_pos - utf8String) : original_len;
+        
+        char *quoted_string = malloc(content_len + 4);
         if (quoted_string == NULL) {
             return NULL;
         }
         
         quoted_string[0] = '@';
         quoted_string[1] = '"';
-        strcpy(quoted_string + 2, utf8String);
-        char *newline = strchr(quoted_string, '\n');
-        if (newline != NULL) {
-            newline[0] = '\0';
-        }
+        memcpy(quoted_string + 2, utf8String, content_len);
+        quoted_string[2 + content_len] = '"';
+        quoted_string[2 + content_len + 1] = '\0';
         
-        size_t final_len = strlen(quoted_string);
-        quoted_string[final_len] = '"';
-        quoted_string[final_len + 1] = '\0';
         return quoted_string;
     }
     
