@@ -263,27 +263,21 @@ id new_objc_msgSend(id self, SEL _cmd, ...) {
                      "mov x1, x17\n"
                      "blr x16\n"
                      
-                     "sub sp, sp, #512\n"
+                     "sub sp, sp, #144\n"
                      "stp x0, x1, [sp, #0]\n"
                      "stp x2, x3, [sp, #16]\n"
-                     "stp x4, x5, [sp, #32]\n"
-                     "stp x6, x7, [sp, #48]\n"
-                     "stp x8, x9, [sp, #64]\n"
-                     "stp q0, q1, [sp, #80]\n"
-                     "stp q2, q3, [sp, #144]\n"
+                     "stp q0, q1, [sp, #32]\n"
+                     "stp q2, q3, [sp, #64]\n"
                      
                      "bl _post_objc_msgSend_callback\n"
                      "mov x30, x0\n"
                      
-                     "ldp q2, q3, [sp, #144]\n"
-                     "ldp q0, q1, [sp, #80]\n"
-                     "ldp x8, x9, [sp, #64]\n"
-                     "ldp x6, x7, [sp, #48]\n"
-                     "ldp x4, x5, [sp, #32]\n"
-                     "ldp x2, x3, [sp, #16]\n"
                      "ldp x0, x1, [sp, #0]\n"
+                     "ldp x2, x3, [sp, #16]\n"
+                     "ldp q0, q1, [sp, #32]\n"
+                     "ldp q2, q3, [sp, #64]\n"
+                     "add sp, sp, #144\n"
                      
-                     "add sp, sp, #512\n"
                      "ret"
                      );
 }
