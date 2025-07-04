@@ -129,10 +129,8 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             }
             
             Class object_class = object_getClass(objc_object);
-            bool isClass = object_isClass((id)object_class);
-            if (isClass == false) {
-                printf("Object at address %p is not a class\n", objc_object);
-                return;
+            if (object_class == nil || (uintptr_t)object_class < 0x10000) {
+                continue;
             }
             
             size_t instance_size = class_getInstanceSize(object_class);
@@ -168,7 +166,9 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             
             char description_buf[1024];
             if (description_for_argument(event_arg, g_tracer_ctx->config.format.args, description_buf, sizeof(description_buf)) != KERN_SUCCESS) {
-                printf("Failed to get description for objc argument %d of type %s\n", i, event_arg->type_encoding);
+                const char *class_name = event_arg->objc_class_name ? event_arg->objc_class_name : "unknown";
+                const char *sel_name = event->method_name ? event->method_name : "unknown";
+                printf("Failed to get description for objc argument %d of type %s, class: %s, sel: %s, sig: %s\n", i, event_arg->type_encoding, class_name, sel_name, event->method_signature);
                 continue;
             }
             
