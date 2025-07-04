@@ -10,6 +10,6 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-void setup_exception_handler_on_process(pid_t traced_app_pid);
+bool setup_exception_handler_on_process(pid_t traced_app_pid);
 
 #endif /* crash_handler_h */

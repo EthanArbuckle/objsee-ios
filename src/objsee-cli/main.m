@@ -154,6 +154,8 @@ int main(int argc, char *argv[]) {
         NSString *configString = [NSString stringWithUTF8String:b64_encoded_config];
         free(b64_encoded_config);
         
+        bool exception_handler_needs_attachment = true;
+        
         if (options.file_path == NULL && options.pid != 0) {
             if (options.run_in_simulator) {
                 printf("Cannot attach to running process in simulator\n");
@@ -181,7 +183,10 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             
-            setup_exception_handler_on_process(options.pid);
+            if (setup_exception_handler_on_process(options.pid)) {
+                exception_handler_needs_attachment = false;
+            }
+            
             printf("Attached to process with PID: %d\n", options.pid);
         }
         else if (bundleID && options.run_in_simulator) {
@@ -227,7 +232,10 @@ int main(int argc, char *argv[]) {
                 printf("Failed to launch app\n");
                 return 1;
             }
-            setup_exception_handler_on_process(options.pid);
+            
+            if (setup_exception_handler_on_process(options.pid)) {
+                exception_handler_needs_attachment = false;
+            }
         }
         
         // The target app is running (either spawned new or attached to existing), and the library is injected.
@@ -237,7 +245,7 @@ int main(int argc, char *argv[]) {
             status = run_tui_trace_server(&config);
         }
         else {
-            status = run_trace_server(&config, options.pid);
+            status = run_trace_server(&config, options.pid, exception_handler_needs_attachment);
         }
         
         return status;

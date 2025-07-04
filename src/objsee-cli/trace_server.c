@@ -8,6 +8,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <json-c/json_tokener.h>
 #include <netinet/in.h>
+#include "crash_handler.h"
 #include "format.h"
 
 // Max time to wait for a client (the process being traced) to connect
@@ -110,7 +111,7 @@ static int setup_socket(tracer_transport_config_t config) {
     return fd;
 }
 
-int run_trace_server(tracer_config_t *config, pid_t traced_pid) {
+int run_trace_server(tracer_config_t *config, pid_t traced_pid, bool exception_handler_needs_attachment) {
     setbuf(stdout, NULL);
     
     struct sigaction sa = {
@@ -134,6 +135,13 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid) {
         client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
         if (client_fd >= 0) {
             printf("Client connected successfully\n");
+            
+            // If setting up an exception handler failed earlier,
+            // try again now that a connection is established
+            if (exception_handler_needs_attachment && setup_exception_handler_on_process(traced_pid)) {
+                exception_handler_needs_attachment = false;
+            }
+
             break;
         }
         

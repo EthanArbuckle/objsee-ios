@@ -30,7 +30,7 @@
 */
 
 #define MAX_FRAMES 128
-#define MAX_EXCEPTIONS 1000
+#define MAX_EXCEPTIONS 1
 
 typedef struct {
     const char *name;
@@ -489,7 +489,7 @@ static void *exception_handler(void *unused) {
     return NULL;
 }
 
-void setup_exception_handler_on_process(pid_t traced_app_pid) {
+bool setup_exception_handler_on_process(pid_t traced_app_pid) {
     g_state.traced_app_pid = traced_app_pid;
     g_state.symbolicator = CSNULL;
     g_state.exception_port = MACH_PORT_NULL;
@@ -498,29 +498,29 @@ void setup_exception_handler_on_process(pid_t traced_app_pid) {
 
     if (!symbolication_initialized()) {
         printf("Failed to initialize CoreSymbolication\n");
-        return;
+        return false;
     }
     
     g_state.traced_app_pid = traced_app_pid;
     if (task_for_pid(mach_task_self(), traced_app_pid, &g_state.traced_app_task) != KERN_SUCCESS) {
         printf("Failed to get task for pid %d\n", traced_app_pid);
-        return;
+        return false;
     }
     
     if (g_state.traced_app_task == MACH_PORT_NULL) {
         printf("Received null task for pid %d\n", traced_app_pid);
-        return;
+        return false;
     }
     
     g_state.symbolicator = create_symbolicator_with_task(g_state.traced_app_task);
     if (cs_isnull(g_state.symbolicator)) {
         printf("Failed to create symbolicator for task\n");
-        return;
+        return false;
     }
     
     if (cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &g_state.cs_handle) != CS_ERR_OK) {
         printf("Failed to initialize Capstone\n");
-        return;
+        return false;
     }
     cs_option(g_state.cs_handle, CS_OPT_DETAIL, CS_OPT_ON);
 
@@ -531,4 +531,6 @@ void setup_exception_handler_on_process(pid_t traced_app_pid) {
     pthread_t exception_thread;
     pthread_create(&exception_thread, NULL, exception_handler, NULL);
     pthread_detach(exception_thread);
+    
+    return true;
 }

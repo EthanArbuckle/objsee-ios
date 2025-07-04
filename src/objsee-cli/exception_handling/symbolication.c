@@ -53,6 +53,16 @@ CSSymbolRef get_symbol_at_address(CSSymbolOwnerRef symbol_owner, uint64_t addres
     if (CS.IsNull(symbol_owner)) {
         return CSNULL;
     }
+    
+    if ((uintptr_t)symbol_owner.csCppData <= 0x2) {
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            printf("Invalid symbol owner, cannot symbolicate: %p\n", symbol_owner.csCppData);
+        });
+
+        return CSNULL;
+    }
+    
     return CS.GetSymbolWithAddress(symbol_owner, address);
 }
 
