@@ -293,6 +293,15 @@ static kern_return_t _description_for_selector(const tracer_argument_t *arg, tra
         return KERN_FAILURE;
     }
     
+    char first_char;
+    vm_size_t bytes_read = 0;
+    if (vm_read_overwrite(mach_task_self(), (vm_address_t)sel_name, 1, (vm_address_t)&first_char, &bytes_read) != KERN_SUCCESS || bytes_read != 1) {
+        if (snprintf(out_buf, buf_size, "@selector(<invalid>)") >= buf_size) {
+             return KERN_NO_SPACE;
+        }
+        return KERN_FAILURE;
+    }
+    
     if (snprintf(out_buf, buf_size, "@selector(%s)", sel_name) >= buf_size) {
         return KERN_NO_SPACE;
     }

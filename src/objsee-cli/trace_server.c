@@ -138,8 +138,8 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid, bool exception_h
             
             // If setting up an exception handler failed earlier,
             // try again now that a connection is established
-            if (exception_handler_needs_attachment && setup_exception_handler_on_process(traced_pid)) {
-                exception_handler_needs_attachment = false;
+            if (exception_handler_needs_attachment) {
+                setup_exception_handler_on_process(traced_pid);
             }
 
             break;
