@@ -5,6 +5,8 @@
 //  Created by Ethan Arbuckle on 12/1/24.
 //
 
+#ifndef BUILDING_CLI_TOOL
+
 #include <os/log.h>
 #include <dlfcn.h>
 #include "config_decode.h"
@@ -38,7 +40,7 @@ static uint64_t delay_period_ms = 1000;
 @end
 
 __attribute__((constructor)) void libobjsee_init(void) {
-    write(STDOUT_FILENO, "libobjsee loaded\n", 22);
+    write(STDOUT_FILENO, "libobjsee loaded\n", 17);
 }
     
 @implementation RuntimeEntryShim
@@ -187,3 +189,5 @@ void objsee_main(const char *encoded_config_string, bool from_dyld_insert) {
         tracer_cleanup(tracer);
     }
 }
+
+#endif

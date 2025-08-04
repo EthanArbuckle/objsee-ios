@@ -81,7 +81,7 @@ def find_host_ldid2_path() -> Path | None:
 
 BINARY_DEPLOY_INFO = {
     "cli": BinaryInstallInformation(Path("usr/bin/objsee"), Path("src/objsee-cli/objsee-entitlements.xml").resolve()),
-    "libobjsee": BinaryInstallInformation(Path("usr/lib/libobjsee.dylib")),
+    "libobjsee": BinaryInstallInformation(Path("Library/Frameworks/libobjsee.framework/libobjsee")),
 }
 
 

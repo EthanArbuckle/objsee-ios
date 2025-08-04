@@ -20,7 +20,7 @@
 
 #define OBJSEE_CLI_VERSION "0.0.1"
 
-const char *OBJSEE_LIBRARY_PATH = "/var/jb/usr/lib/libobjsee.dylib";
+const char *OBJSEE_LIBRARY_PATH = "/var/jb/Library/Frameworks/libobjsee.framework/libobjsee";
 
 static void print_version(void) {
     printf("objsee-cli version %s\n", OBJSEE_CLI_VERSION);
@@ -50,11 +50,9 @@ static void print_usage(void) {
 
 static kern_return_t locate_objsee_library(void) {
     char *possible_paths[] = {
-        // Prioritize /tmp/ over paths that are more likely to have sandbox restrictions
         "/tmp/libobjsee.dylib",
-        "/var/jb/usr/lib/libobjsee.dylib",
-        "/usr/lib/libobjsee.dylib",
-        "/var/jb/tmp/libobjsee.dylib",
+        "/var/jb/Library/Frameworks/libobjsee.framework/libobjsee",
+        "/Library/Frameworks/libobjsee.framework/libobjsee",
         NULL,
     };
     
@@ -67,9 +65,9 @@ static kern_return_t locate_objsee_library(void) {
     
     const char *jbroot_path = getenv("JBROOT");
     if (jbroot_path != NULL) {
-        char *path = malloc(strlen(jbroot_path) + strlen("/usr/lib/libobjsee.dylib") + 1);
+        char *path = malloc(strlen(jbroot_path) + strlen("/Library/Frameworks/libobjsee.framework/libobjsee") + 1);
         strcpy(path, jbroot_path);
-        strcat(path, "/usr/lib/libobjsee.dylib");
+        strcat(path, "/Library/Frameworks/libobjsee.framework/libobjsee");
         
         if (access(path, F_OK) == 0) {
             OBJSEE_LIBRARY_PATH = path;
