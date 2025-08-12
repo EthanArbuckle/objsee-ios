@@ -28,26 +28,43 @@ static void print_version(void) {
 }
 
 static void print_usage(void) {
-    printf("Usage: objsee [options] <bundle id>\n\n");
-    printf("Options:\n");
-    printf("  -h, --help                    Show this help message\n");
-    printf("  -v, --version                 Show version information\n");
-    printf("  -T                            Run in TUI mode\n");
-    printf("  -c <pattern>                  Include class pattern\n");
-    printf("  -C <pattern>                  Exclude class pattern\n");
-    printf("  -m <pattern>                  Include method pattern\n");
-    printf("  -M <pattern>                  Exclude method pattern\n");
-    printf("  -i <pattern>                  Image path pattern\n\n");
-    printf("  -p <process hint>             Attach to an existing process\n");
-    printf("  --nocolor                     Disable color output\n");
-    printf("  --sim                         Run the app in iOS Simulator\n\n");
-    printf("  -A0                           Include no arguments\n");
-    printf("  -A1                           Include basic argument detail\n");
-    printf("  -A2                           Include class names in argument detail\n");
-    printf("  -A3                           Include full argument detail\n\n");
-    printf("  -d <delay>                    Tracer initialization delay in milliseconds (default: 0)\n");
-    printf("  -R                            Use symbol rebinding instead of MSHookFunction\n\n");
-    printf("Example: objsee -c \"UIView*\" -m \"*\" com.apple.mobilesafari\n\n");
+    printf("\033[1m\033[33mUSAGE\033[0m\n");
+    printf("    \033[36mobjsee\033[0m \033[90m[\033[37moptions\033[90m]\033[0m \033[32m<bundle_id>\033[0m\n\n");
+    
+    printf("\033[1m\033[33mFILTERING\033[0m\n");
+    printf("    \033[36m-c\033[0m \033[32m<pattern>\033[0m     \033[90m│\033[0m Include class pattern (wildcards supported)\n");
+    printf("    \033[36m-C\033[0m \033[32m<pattern>\033[0m     \033[90m│\033[0m Exclude class pattern (wildcards supported)\n");
+    printf("    \033[36m-m\033[0m \033[32m<pattern>\033[0m     \033[90m│\033[0m Include method pattern (wildcards supported)\n");
+    printf("    \033[36m-M\033[0m \033[32m<pattern>\033[0m     \033[90m│\033[0m Exclude method pattern (wildcards supported)\n");
+    printf("    \033[36m-i\033[0m \033[32m<pattern>\033[0m     \033[90m│\033[0m Filter by image path pattern\n\n");
+    
+    printf("\033[1m\033[33mPROCESS CONTROL\033[0m\n");
+    printf("    \033[36m-p\033[0m \033[32m<hint>\033[0m        \033[90m│\033[0m Attach to existing process by hint\n");
+    printf("    \033[36m--sim\033[0m            \033[90m│\033[0m Launch target in iOS Simulator\n");
+    printf("    \033[36m-T\033[0m               \033[90m│\033[0m Enable interactive TUI mode\n\n");
+    
+    printf("\033[1m\033[33mARGUMENT DETAIL LEVELS\033[0m\n");
+    printf("    \033[36m-A0\033[0m              \033[90m│\033[0m No argument details \033[90m(fastest)\033[0m\n");
+    printf("    \033[36m-A1\033[0m              \033[90m│\033[0m Basic argument information\n");
+    printf("    \033[36m-A2\033[0m              \033[90m│\033[0m Include argument class names\n");
+    printf("    \033[36m-A3\033[0m              \033[90m│\033[0m Full argument introspection \033[90m(slowest)\033[0m\n\n");
+    
+    printf("\033[1m\033[33mADVANCED OPTIONS\033[0m\n");
+    printf("    \033[36m-d\033[0m \033[32m<delay>\033[0m       \033[90m│\033[0m Tracer init delay in ms \033[90m(default: 0)\033[0m\n");
+    printf("    \033[36m-R\033[0m               \033[90m│\033[0m Use symbol rebinding \033[90m(vs MSHookFunction)\033[0m\n");
+    printf("    \033[36m--nocolor\033[0m        \033[90m│\033[0m Disable colored output\n\n");
+    
+    printf("\033[1m\033[33mSYSTEM\033[0m\n");
+    printf("    \033[36m-h\033[0m, \033[36m--help\033[0m       \033[90m│\033[0m Show this help message\n");
+    printf("    \033[36m-v\033[0m, \033[36m--version\033[0m    \033[90m│\033[0m Show version information\n\n");
+    
+    printf("\033[1m\033[33mEXAMPLES\033[0m\n");
+    printf("    \033[90m# Trace all UIView methods in Safari\033[0m\n");
+    printf("    \033[36mobjsee\033[0m \033[37m-c\033[0m \033[32m\"UIView*\"\033[0m \033[37m-m\033[0m \033[32m\"*\"\033[0m \033[33mcom.apple.mobilesafari\033[0m\n\n");
+    printf("    \033[90m# Attach to running process with full argument detail\033[0m\n");
+    printf("    \033[36mobjsee\033[0m \033[37m-p\033[0m \033[32m\"SpringBoard\"\033[0m \033[37m-A3\033[0m\n\n");
+    printf("    \033[90m# Exclude system framework noise, focus on app logic\033[0m\n");
+    printf("    \033[36mobjsee\033[0m \033[37m-C\033[0m \033[32m\"*NS*\"\033[0m \033[37m-C\033[0m \033[32m\"UI*\"\033[0m \033[37m-A2\033[0m \033[33mcom.example.app\033[0m\n\n");
 }
 
 static kern_return_t locate_objsee_library(void) {
