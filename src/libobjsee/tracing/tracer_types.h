@@ -144,16 +144,26 @@ typedef struct tracer_filter {
 typedef void (tracer_event_handler_t)(const tracer_event_t *event, void *context);
 
 typedef struct {
+    // Filter patterns for tracing events
     tracer_filter_t filters[TRACER_MAX_FILTERS];
     int filter_count;
     
+    // Configure the look of the formatted trace output
     tracer_format_options_t format;
     
+    // The transport type used to send trace events
     tracer_transport_type_t transport;
     tracer_transport_config_t transport_config;
     
+    // A user-defined event handler for processing trace events
     tracer_event_handler_t *event_handler;
     void *event_handler_context;
+    
+    // The delay in milliseconds between process launch and tracer initialization.
+    // If an app crashes immediately, try increasing this value.
+    // 0 means no delay
+    int tracer_delay_ms;
+    
     bool from_dyld_insert;
 } tracer_config_t;
 

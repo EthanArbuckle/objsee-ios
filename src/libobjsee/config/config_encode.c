@@ -118,6 +118,8 @@ tracer_result_t encode_tracer_config(tracer_config_t *config, char **out_str) {
         
         json_object_object_add(root, "filters", filters_array);
     }
+    
+    json_object_object_add(root, "tracer_delay_ms", json_object_new_int(config->tracer_delay_ms));
 
     const char *json_str = json_object_to_json_string(root);
     if (json_str == NULL) {

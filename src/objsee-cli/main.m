@@ -45,6 +45,7 @@ static void print_usage(void) {
     printf("  -A1                           Include basic argument detail\n");
     printf("  -A2                           Include class names in argument detail\n");
     printf("  -A3                           Include full argument detail\n\n");
+    printf("  -d <delay>                    Tracer initialization delay in milliseconds (default: 0)\n\n");
     printf("Example: objsee -c \"UIView*\" -m \"*\" com.apple.mobilesafari\n\n");
 }
 

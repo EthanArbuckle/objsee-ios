@@ -75,6 +75,19 @@ int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_c
             continue;
         }
         
+        if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
+            char *endptr;
+            long delay = strtol(argv[i + 1], &endptr, 10);
+            if (*endptr != '\0' || delay < 0) {
+                printf("Error: Invalid delay value '%s'\n", argv[i + 1]);
+                return -1;
+            }
+            config->tracer_delay_ms = (int)delay;
+            i++;
+            printf("Setting tracer delay to %d ms\n", config->tracer_delay_ms);
+            continue;
+        }
+        
         // arg verbosity: -A0, -A1, -A2, -A3
         if (argv[i][0] == '-' && argv[i][1] == 'A' && argv[i][2] >= '0' && argv[i][2] <= '3') {
             config->format.args = argv[i][2] - '0';
@@ -167,5 +180,7 @@ int apply_defaults_to_config(tracer_config_t *config) {
         .args = TRACER_ARG_FORMAT_CLASS,
     };
     
+    config->tracer_delay_ms = 0;
+
     return 0;
 }
