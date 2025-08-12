@@ -10,52 +10,62 @@ objsee is a command-line tool and library for inspecting Objective-C method call
 - **Multiple Transports** for trace output: stdout, file, socket, or custom handlers.
 - **Colorized Console Output** and optional JSON event output.
 
-
 ### CLI Usage
 
 ```bash
-objsee [-h]            # Show help
-       [-v]            # Show version
-       [-T]            # TUI mode
-       [-c <class>]    # Include classes
-       [-C <class>]    # Exclude classes
-       [-m <method>]   # Include methods
-       [-M <method>]   # Exclude methods
-       [-i <image>]    # Include images
+objsee [-h|--help]       # Show help
+       [-v|--version]    # Show version
+       [-T]              # TUI mode
+       [-c <class>]      # Include classes
+       [-C <class>]      # Exclude classes
+       [-m <method>]     # Include methods
+       [-M <method>]     # Exclude methods
+       [-i <image>]      # Include images
+       [-A0|-A1|-A2|-A3] # Argument detail level
+       [-d <delay>]      # Tracer delay (ms)
+       [-R]              # Use symbol rebinding
+       [--nocolor]       # Disable colors
+       [--sim]           # Use iOS Simulator
        <bundle-id>
+
+# OR attach to existing process:
+objsee [-options...] -p <process-name-or-pid>
 ```
 
-- **`-h`** : Show help.
-- **`-v`** : Show version.
-- **`-T`** : Run in TUI mode (thread-separated display).
-- **`-c <pattern>`** : Include classes matching `pattern`.
-- **`-C <pattern>`** : Exclude classes matching `pattern`.
-- **`-m <pattern>`** : Include methods matching `pattern`.
-- **`-M <pattern>`** : Exclude methods matching `pattern`.
-- **`-i <pattern>`** : Include image paths matching `pattern`.
-- **`<bundle-id>`** : The target application's bundle identifier (or process) to attach to.
+#### Options
 
-> Patterns support wildcards (`*`). For example, `UIView*` will match `UIView`, `UIViewController`, etc.
+- **`-h, --help`** : Show help message
+- **`-v, --version`** : Show version information
+- **`-T`** : Run in TUI mode (thread-separated display)
+- **`-c <pattern>`** : Include classes matching `pattern`
+- **`-C <pattern>`** : Exclude classes matching `pattern`
+- **`-m <pattern>`** : Include methods matching `pattern`
+- **`-M <pattern>`** : Exclude methods matching `pattern`
+- **`-p <name-or-pid>`** : Attach to existing process by name or PID (cannot be used with bundle-id)
+- **`-A0`** : No argument details (fastest)
+- **`-A1`** : Basic argument information
+- **`-A2`** : Include argument class names
+- **`-A3`** : Full argument introspection (slowest)
+- **`-d <delay>`** : Tracer initialization delay in milliseconds (default: 0)
+- **`-R`** : Use symbol rebinding instead of MSHookFunction
+- **`--nocolor`** : Disable colored output
+- **`--sim`** : Run the app in iOS Simulator
+- **`<bundle-id>`** : Target application's bundle identifier (required if not using `-p`)
 
-### Common Usage Patterns
+#### Examples
 
-#### View Hierarchy Debugging
 ```bash
-# Track view hierarchy changes
-objsee -c "UIView*" -m "addSubview:*" -m "removeFromSuperview*" com.my.app
+# Trace all UIView methods in Safari
+objsee -c "UIView*" -m "*" com.apple.mobilesafari
+
+# Attach to running SpringBoard process with full argument detail
+objsee -p "SpringBoard" -A3
+
+# Exclude system framework noise, focus on app logic
+objsee -C "NS*" -C "UI*" -A2 com.example.app
 ```
 
-#### Network Monitoring
-```bash
-# Track network activity
-objsee -c "NSURLSession*" -c "NSURLConnection*" com.my.app
-```
-
-#### Touch Tracking
-```bash
-# Monitor touch events
-objsee -c "UI*" -m "touchesBegan:*" -m "touchesEnded:*" com.my.app
-```
+> **Note:** Patterns support wildcards (`*`). For example, `UIView*` will match `UIView`, `UIViewController`, etc.
 
 ##### Example output:
 
