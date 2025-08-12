@@ -245,11 +245,7 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
         if (filter->exclude) {
             continue;
         }
-        
-        if (should_trace) {
-            break;
-        }
-        
+                
         if (filter->custom_filter != NULL) {
             tracer_event_t event = {
                 .class_name = frame->self_class_name,
@@ -268,41 +264,38 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
             continue;
         }
         
+        bool filter_matches = true;
+
         // If an image filter is specified
         if (filter->image_pattern != NULL) {
             // And the current image path is NULL
             if (frame->image_path == NULL) {
                 // Then do not trace
-                continue;
+                filter_matches = false;
             }
-            
             // If both image paths are not NULL
             // And the current image path does not match
-            if (strstr(frame->image_path, filter->image_pattern) == NULL) {
+            else if (strstr(frame->image_path, filter->image_pattern) == NULL) {
                 // Then do not trace
-                continue;
+                filter_matches = false;
             }
         }
         
         // If a class filter is specified
-        if (filter->class_pattern != NULL) {
+        if (filter->class_pattern != NULL && filter_matches) {
             // And the current class name matches
-            if (!match_wildcard(filter->class_pattern, frame->self_class_name)) {
-                // Then do not trace
-                continue;
-            }
+            filter_matches = match_wildcard(filter->class_pattern, frame->self_class_name);
         }
         
         // If a method filter is specified
-        if (filter->method_pattern != NULL) {
+        if (filter->method_pattern != NULL && filter_matches) {
             // And the current method name does not match
-            if (!match_wildcard(filter->method_pattern, frame->selector_name)) {
-                // Then do not trace
-                continue;
-            }
+            filter_matches = match_wildcard(filter->method_pattern, frame->selector_name);
         }
         
-        should_trace = true;
+        if (filter_matches) {
+            should_trace = true;
+        }
     }
     
     pthread_rwlock_unlock(&tracer->filter_lock);

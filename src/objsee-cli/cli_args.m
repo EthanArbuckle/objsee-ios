@@ -100,41 +100,86 @@ int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_c
         }
         
         if (argv[i][0] == '-' && i + 1 < argc) {
-            if (config->filter_count >= TRACER_MAX_FILTERS) {
-                printf("Error: Too many filters (max is %d)\n", TRACER_MAX_FILTERS);
-                return -1;
-            }
-            
-            int current = config->filter_count;
             const char *pattern = argv[i + 1];
+            bool is_exclude = false;
+            char filter_type;
             
             switch (argv[i][1]) {
                 case 'c':
-                    config->filters[current].class_pattern = pattern;
-                    config->filters[current].exclude = false;
+                    filter_type = 'c';
+                    is_exclude = false;
                     break;
                 case 'C':
-                    config->filters[current].class_pattern = pattern;
-                    config->filters[current].exclude = true;
+                    filter_type = 'c';
+                    is_exclude = true;
                     break;
                 case 'm':
-                    config->filters[current].method_pattern = pattern;
-                    config->filters[current].exclude = false;
+                    filter_type = 'm';
+                    is_exclude = false;
                     break;
                 case 'M':
-                    config->filters[current].method_pattern = pattern;
-                    config->filters[current].exclude = true;
+                    filter_type = 'm';
+                    is_exclude = true;
                     break;
                 case 'i':
-                    config->filters[current].image_pattern = pattern;
-                    config->filters[current].exclude = false;
+                    filter_type = 'i';
+                    is_exclude = false;
                     break;
                 default:
                     printf("Error: Unknown option '%s'\n", argv[i]);
                     return -1;
             }
             
-            config->filter_count++;
+            // Find existing filter to merge with, or create new one
+            int filter_index = -1;
+            
+            // Look for most recent filter with same exclude flag
+            for (int j = config->filter_count - 1; j >= 0; j--) {
+                if (config->filters[j].exclude == is_exclude) {
+                    // Check if this pattern type already exists in this filter
+                    bool pattern_already_set = false;
+                    switch (filter_type) {
+                        case 'c':
+                            pattern_already_set = (config->filters[j].class_pattern != NULL);
+                            break;
+                        case 'm':
+                            pattern_already_set = (config->filters[j].method_pattern != NULL);
+                            break;
+                        case 'i':
+                            pattern_already_set = (config->filters[j].image_pattern != NULL);
+                            break;
+                    }
+                    
+                    if (!pattern_already_set) {
+                        // Can merge into this filter
+                        filter_index = j;
+                        break;
+                    }
+                }
+            }
+            
+            if (filter_index == -1) {
+                if (config->filter_count >= TRACER_MAX_FILTERS) {
+                    printf("Error: Too many filters (max is %d)\n", TRACER_MAX_FILTERS);
+                    return -1;
+                }
+                filter_index = config->filter_count++;
+                memset(&config->filters[filter_index], 0, sizeof(tracer_filter_t));
+                config->filters[filter_index].exclude = is_exclude;
+            }
+            
+            switch (filter_type) {
+                case 'c':
+                    config->filters[filter_index].class_pattern = pattern;
+                    break;
+                case 'm':
+                    config->filters[filter_index].method_pattern = pattern;
+                    break;
+                case 'i':
+                    config->filters[filter_index].image_pattern = pattern;
+                    break;
+            }
+            
             i++;
             continue;
         }
