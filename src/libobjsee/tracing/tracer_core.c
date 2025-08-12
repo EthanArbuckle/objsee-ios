@@ -225,8 +225,20 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
     if (image_path_needed == NEEDED_FOR_INCLUDE) {
         resolve_image_path();
     }
+
+    // If the user did not specify inclusion patterns, trace everything.
+    // This makes it such that if the user only specifies exclusion patterns, everything
+    // not captured by those exclusions will be traced
+    bool has_inclusion_filters = false;
+    for (size_t i = 0; i < tracer->config.filter_count; i++) {
+        if (!tracer->config.filters[i].exclude) {
+            has_inclusion_filters = true;
+            break;
+        }
+    }
     
-    bool should_trace = false;
+    bool should_trace = !has_inclusion_filters;
+    
     for (size_t i = 0; i < tracer->config.filter_count; i++) {
         // This pass only considers inclusion filters
         const tracer_filter_t *filter = &tracer->config.filters[i];
