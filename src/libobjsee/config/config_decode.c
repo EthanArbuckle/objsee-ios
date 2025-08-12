@@ -216,6 +216,11 @@ tracer_result_t decode_tracer_config(const char *config_str, tracer_config_t *co
         config_out.tracer_delay_ms = json_object_get_int(obj);
     }
     
+    config_out.use_symbol_rebinding = false;
+    if (json_object_object_get_ex(root, "use_symbol_rebinding", &obj)) {
+        config_out.use_symbol_rebinding = json_object_get_boolean(obj);
+    }
+    
     json_object_put(root);
 
     *config = config_out;
@@ -378,6 +383,13 @@ const char *copy_config_description(tracer_config_t config) {
     offset += written;
     
     written = snprintf(formatted + offset, buffer_size - offset, "Tracer delay ms: %d, ", config.tracer_delay_ms);
+    if (written < 0 || written >= buffer_size - offset) {
+        free(formatted);
+        return NULL;
+    }
+    offset += written;
+    
+    written = snprintf(formatted + offset, buffer_size - offset, "Symbol rebinding: %d\n", config.use_symbol_rebinding);
     if (written < 0 || written >= buffer_size - offset) {
         free(formatted);
         return NULL;

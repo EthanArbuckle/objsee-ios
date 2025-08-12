@@ -16,8 +16,6 @@
 #include "tracer.h"
 #include "rebind.h"
 
-#define USE_JAILBREAK_HOOKER 0
-
 void *original_objc_msgSend = NULL;
 static pthread_key_t interception_stacktrace_thread_key;
 // TODO: remove
@@ -318,20 +316,44 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
         return TRACER_ERROR_INITIALIZATION;
     }
 
-#if USE_JAILBREAK_HOOKER
-    void *jbhooker_handle = dlopen("/var/jb/usr/lib/libsubstrate.dylib", 0);
-    void *_MSHookFunction = dlsym(jbhooker_handle, "MSHookFunction");
-    if (_MSHookFunction) {
+    if (tracer->config.use_symbol_rebinding) {
+        // Hook objc_msgSend using symbol rebinding (works without a jailbreak)
+        struct symbol_rebinding_t *rebinding = hook_function("objc_msgSend", new_objc_msgSend);
+        if (rebinding == NULL) {
+            tracer_set_error(g_tracer_ctx, "Failed to hook objc_msgSend");
+            return TRACER_ERROR_INITIALIZATION;
+        }
+        
+        free(rebinding);
+    }
+    else {
+        // Hook objc_msgSend using a jailbreak hooking library
+        const char *possible_lib_paths[2] = {
+            "/var/jb/usr/lib/libsubstrate.dylib",
+            "/usr/lib/libsubstrate.dylib",
+        };
+        
+        void *jbhooker_handle = NULL;
+        for (size_t i = 0; i < sizeof(possible_lib_paths) / sizeof(possible_lib_paths[0]); i++) {
+            jbhooker_handle = dlopen(possible_lib_paths[i], RTLD_LAZY);
+            if (jbhooker_handle != NULL) {
+                break;
+            }
+        }
+        
+        if (jbhooker_handle == NULL) {
+            tracer_set_error(g_tracer_ctx, "Failed to find or load jailbreak hooker library");
+            return TRACER_ERROR_INITIALIZATION;
+        }
+        
+        void *_MSHookFunction = dlsym(jbhooker_handle, "MSHookFunction");
+        if (_MSHookFunction == NULL) {
+            tracer_set_error(g_tracer_ctx, "Failed to locate MSHookFunction in jailbreak hooker library");
+            return TRACER_ERROR_INITIALIZATION;
+        }
+        
         ((void (*)(void *, void *, void **))_MSHookFunction)(original_objc_msgSend, new_objc_msgSend, (void **)&original_objc_msgSend);
     }
-#else
-    struct symbol_rebinding_t *rebinding = hook_function("objc_msgSend", new_objc_msgSend);
-    if (rebinding == NULL) {
-        tracer_set_error(g_tracer_ctx, "Failed to hook objc_msgSend");
-        return TRACER_ERROR_INITIALIZATION;
-    }
-    
-    free(rebinding);
-#endif
+
     return TRACER_SUCCESS;
 }

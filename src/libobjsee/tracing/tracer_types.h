@@ -164,6 +164,9 @@ typedef struct {
     // 0 means no delay
     int tracer_delay_ms;
     
+    // Hooking strategy: symbol rebinding or hooking library
+    bool use_symbol_rebinding;
+    
     bool from_dyld_insert;
 } tracer_config_t;
 

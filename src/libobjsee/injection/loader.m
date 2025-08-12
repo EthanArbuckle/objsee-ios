@@ -105,6 +105,7 @@ void objsee_main(const char *encoded_config_string, bool from_dyld_insert) {
             .transport = TRACER_TRANSPORT_SOCKET,
             .from_dyld_insert = from_dyld_insert,
             .tracer_delay_ms = 0,
+            .use_symbol_rebinding = false,
         };
         
         config.format = (tracer_format_options_t) {
