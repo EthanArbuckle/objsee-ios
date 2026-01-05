@@ -5,20 +5,20 @@
 //  Created by Ethan Arbuckle on 2/7/25.
 //
 
+#include <libkern/OSAtomic.h>
 #include <objc/runtime.h>
-#include <os/lock.h>
 #include <string.h>
 #include "msgSend_hook.h"
 
 // Cache the result of -description calls to avoid repeated calls
 static char *g_description_cache[1024] = {0};
 static size_t g_description_cache_count = 0;
-static os_unfair_lock g_description_cache_lock = OS_UNFAIR_LOCK_INIT;
+static OSSpinLock g_description_cache_lock = OS_SPINLOCK_INIT;
 
 // Cache the description IMP for classes to avoid repeated lookups
 static void *g_imp_cache[1024] = {0};
 static size_t g_imp_cache_count = 0;
-static os_unfair_lock g_imp_cache_lock = OS_UNFAIR_LOCK_INIT;
+static OSSpinLock g_imp_cache_lock = OS_SPINLOCK_INIT;
 
 
 static SEL description_selector(void) {
@@ -34,12 +34,12 @@ static IMP get_description_imp_for_class(Class cls) {
         return NULL;
     }
     
-    os_unfair_lock_lock(&g_imp_cache_lock);
+    OSSpinLockLock(&g_imp_cache_lock);
     
     for (size_t i = 0; i < g_imp_cache_count; i += 2) {
         if (g_imp_cache[i] == cls) {
             IMP existingImp = (IMP)g_imp_cache[i + 1];
-            os_unfair_lock_unlock(&g_imp_cache_lock);
+            OSSpinLockUnlock(&g_imp_cache_lock);
             return existingImp;
         }
     }
@@ -55,8 +55,8 @@ static IMP get_description_imp_for_class(Class cls) {
         g_imp_cache[g_imp_cache_count + 1] = descriptionImp;
         g_imp_cache_count += 2;
     }
-    
-    os_unfair_lock_unlock(&g_imp_cache_lock);
+
+    OSSpinLockUnlock(&g_imp_cache_lock);
     return descriptionImp;
 }
 
@@ -88,7 +88,11 @@ static const char *build_objc_description_for_object(void *address, Class obj_cl
     }
     
     // For string types, use objc style quoting (@"string")
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000
     if (objc_opt_isKindOfClass(object, objc_getClass("NSString"))) {
+#else
+    if (((bool (*)(id, SEL, Class))orig_objc_msgSend)(object, sel_registerName("isKindOfClass:"), objc_getClass("NSString"))) {
+#endif
         size_t original_len = strlen(utf8String);
         const char *newline_pos = strchr(utf8String, '\n');
         size_t content_len = newline_pos ? (newline_pos - utf8String) : original_len;
@@ -117,28 +121,29 @@ const char *lookup_description_for_address(void *address, Class obj_class) {
 
     const char *result_desc = NULL;
 
-    os_unfair_lock_lock(&g_description_cache_lock);
+    OSSpinLockLock(&g_description_cache_lock);
+
     for (size_t i = 0; i < g_description_cache_count; i += 2) {
         if (g_description_cache[i] == address) {
             result_desc = (const char *)g_description_cache[i + 1];
-            os_unfair_lock_unlock(&g_description_cache_lock);
+            OSSpinLockUnlock(&g_description_cache_lock);
             return result_desc;
         }
     }
-    os_unfair_lock_unlock(&g_description_cache_lock);
+    OSSpinLockUnlock(&g_description_cache_lock);
 
     const char *built_desc = build_objc_description_for_object(address, obj_class);
     if (built_desc == NULL) {
         return NULL;
     }
 
-    os_unfair_lock_lock(&g_description_cache_lock);
+    OSSpinLockLock(&g_description_cache_lock);
 
     for (size_t i = 0; i < g_description_cache_count; i += 2) {
         if (g_description_cache[i] == address) {
             result_desc = (const char *)g_description_cache[i + 1];
             free((void*)built_desc);
-            os_unfair_lock_unlock(&g_description_cache_lock);
+            OSSpinLockUnlock(&g_description_cache_lock);
             return result_desc;
         }
     }
@@ -166,6 +171,7 @@ const char *lookup_description_for_address(void *address, Class obj_class) {
         result_desc = built_desc;
     }
 
-    os_unfair_lock_unlock(&g_description_cache_lock);
+    OSSpinLockUnlock(&g_description_cache_lock);
+
     return result_desc;
 }

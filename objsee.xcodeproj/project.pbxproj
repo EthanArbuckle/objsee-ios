@@ -1155,6 +1155,7 @@
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = "";
@@ -1205,6 +1206,7 @@
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = "";
 				"OTHER_LDFLAGS[sdk=macosx*]" = "";
@@ -1278,6 +1280,7 @@
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"-lncursesw-ios",
 					"-lcapstone-ios",
@@ -1334,6 +1337,7 @@
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				OTHER_CFLAGS = "-Wno-deprecated-declarations";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"-lncursesw-ios",
 					"-lcapstone-ios",
