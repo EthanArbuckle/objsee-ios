@@ -16,17 +16,25 @@
 #define MAX_RETRIES 3
 #define RETRY_BASE_DELAY_MS 100
 
+static void make_abs_timespec_from_now(struct timespec *ts, int seconds_from_now) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    ts->tv_sec = tv.tv_sec + seconds_from_now;
+    ts->tv_nsec = (long)tv.tv_usec * 1000L;
+}
+
 static void *transport_thread(void *tracer_arg) {
     tracer_t *tracer = (tracer_t *)tracer_arg;
     transport_context_t *ctx = (transport_context_t *)tracer->transport_context;
     
     while (ctx->running) {
-        pthread_mutex_lock(&ctx->queue.lock);
         
         struct timespec timeout;
-        clock_gettime(CLOCK_REALTIME, &timeout);
-        timeout.tv_sec += 1;
+        make_abs_timespec_from_now(&timeout, 1);
         
+        pthread_mutex_lock(&ctx->queue.lock);
+
         while (ctx->queue.count == 0 && ctx->running) {
             int rc = pthread_cond_timedwait(&ctx->queue.not_empty, &ctx->queue.lock, &timeout);
             if (rc == ETIMEDOUT) {
@@ -319,8 +327,8 @@ tracer_result_t transport_send(tracer_t *tracer, const void *data, size_t length
             memcpy(data_copy, data, length);
             
             struct timespec timeout;
-            clock_gettime(CLOCK_REALTIME, &timeout);
-            timeout.tv_sec += 2;
+            make_abs_timespec_from_now(&timeout, 2);
+            
             pthread_mutex_lock(&ctx->queue.lock);
             
             while (ctx->queue.count >= ctx->queue.capacity) {
