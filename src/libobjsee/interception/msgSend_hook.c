@@ -26,7 +26,7 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
     
     struct tracer_thread_context_t *ctx = (struct tracer_thread_context_t *)pthread_getspecific(interception_stacktrace_thread_key);
     if (__builtin_expect(ctx == NULL, 0)) {
-        ctx = (struct tracer_thread_context_t *)malloc(sizeof(tracer_thread_context_t));
+        ctx = (struct tracer_thread_context_t *)calloc(1, sizeof(struct tracer_thread_context_t));
         if (ctx == NULL) {
             tracer_set_error(g_tracer_ctx, "get_thread_context: Failed to allocate thread context");
             return NULL;

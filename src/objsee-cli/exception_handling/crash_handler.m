@@ -7,13 +7,23 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #import <Foundation/Foundation.h>
+
+#if !defined(__arm64__)
+
+#warning "crash_handler.m is only supported on arm64 architecture."
+bool setup_exception_handler_on_process(pid_t traced_app_pid) {
+    return false;
+}
+
+#else
+
+#include <capstone/capstone.h>
 #include <objc/runtime.h>
 #include <objc/message.h>
 #include <mach/mach.h>
 #include <pthread.h>
 #include <unwind.h>
 #include <dlfcn.h>
-#include <capstone/capstone.h>
 #include "mach_excServer.h"
 #include "symbolication.h"
 #include "highlight.h"
@@ -534,3 +544,5 @@ bool setup_exception_handler_on_process(pid_t traced_app_pid) {
     
     return true;
 }
+
+#endif // __arm64__

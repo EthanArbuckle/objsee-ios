@@ -108,7 +108,7 @@ typedef struct {
     const char *description;        // May be NULL
     Class objc_class;               // NULL if not an object
     void *address;                  // Never NULL
-    size_t size;
+    vm_size_t size;
 } tracer_argument_t;
 
 typedef struct {

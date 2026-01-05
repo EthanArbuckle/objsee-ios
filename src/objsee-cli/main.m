@@ -258,10 +258,17 @@ int main(int argc, char *argv[]) {
         // The target app is running (either spawned new or attached to existing), and the library is injected.
         // Connect to the transport socket and start listening for incoming trace events
         int status = 0;
+
+#if defined(__arm64__)
         if (options.tui_mode) {
             status = run_tui_trace_server(&config);
         }
-        else {
+
+        else 
+
+#endif // defined(__arm64__)
+
+        {
             status = run_trace_server(&config, options.pid, exception_handler_needs_attachment);
         }
         

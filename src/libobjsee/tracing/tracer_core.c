@@ -303,41 +303,38 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
     return should_trace;
 }
 
-__attribute__((aligned(16), always_inline, hot))
-bool is_valid_pointer(void *ptr) {
-    if (ptr == NULL || ((uintptr_t)ptr % sizeof(void *)) != 0) {
+__attribute__((aligned(16), always_inline, hot)) bool is_valid_pointer(void *ptr) {
+    uintptr_t addr = (uintptr_t)ptr;
+#if defined(__LP64__)
+    const uintptr_t min_addr = 0x4000;
+    const uintptr_t max_addr = 0x800000000000;
+    const uintptr_t tag_mask = 0xFULL << 60;
+    const uintptr_t high_bit = 1ULL << 63;
+    const uintptr_t objc_tag_bit = 1ULL << 60;
+#else
+    const uintptr_t min_addr = 0x4000;
+    const uintptr_t max_addr = UINTPTR_MAX;
+#endif
+
+    if (addr < min_addr || addr > max_addr || (addr & (sizeof(void *) - 1)) != 0) {
         return false;
     }
-    
-    // Userspace shouldn't exceed 0x800000000000
-    if ((uintptr_t)ptr < 0x4000 || (uintptr_t)ptr > 0x800000000000) {
-        return false;
-    }
-    
-    // Check for tagged pointers
-    if (((uintptr_t)ptr & (0x1UL << 63UL)) == (0x1UL << 63UL) ||
-        ((uintptr_t)ptr & (0x1UL << 60UL)) == (0x1UL << 60UL)) {
+
+#if defined(__LP64__)
+    if ((addr & high_bit) != 0 || (addr & objc_tag_bit) != 0) {
         return true;
     }
-    
+
     uint64_t isa = (uint64_t)((_nsobject *)ptr)->isa;
     if ((isa & objc_debug_isa_magic_mask) != objc_debug_isa_magic_value) {
         return false;
     }
 
-    // Check for class pointers
-    if (((uintptr_t)ptr & 0xFFFF800000000000) != 0) {
+    uintptr_t untagged = addr & ~tag_mask;
+    if (untagged < 0x100000000 || untagged > 0x2000000000 || (untagged & 0x7) != 0) {
         return false;
     }
-    
-    uintptr_t addr = ((uintptr_t)ptr & ~(0xFULL << 60));
-    if (addr < 0x100000000 || addr > 0x2000000000) {
-        return false;
-    }
-    
-    if (((uintptr_t)ptr & ~(0xFULL << 60) & 0x7) != 0) {
-        return false;
-    }
-    
+#endif
+
     return true;
 }

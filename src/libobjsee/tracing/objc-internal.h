@@ -24,7 +24,10 @@
 #define _OBJC_TAG_EXT_PAYLOAD_RSHIFT 12
 
 static inline bool _objc_isTaggedPointer(const void * _Nullable ptr) {
+#if __LP64__
     return ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
+#endif
+    return false;
 }
 
 

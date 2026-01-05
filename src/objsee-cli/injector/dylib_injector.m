@@ -1,4 +1,21 @@
 #include <Foundation/Foundation.h>
+
+#if !defined(__arm64__)
+#warning "dylib_injector.m is only supported on arm64 architecture."
+kern_return_t inject_dylib_into_pid(const char *dylib_path, int pid) {
+    return -1;
+}
+
+uint64_t get_function_address_in_pid(const char *function_name, const char *image_filter, int pid) {
+    return 0;
+}
+
+kern_return_t call_remote_function_with_string(uint64_t function_address, const char *string_arg, pid_t pid) {
+    return -1;
+}
+
+#else
+
 #include <mach/mach.h>
 #include <dlfcn.h>
 #include "symbolication.h"
@@ -167,3 +184,5 @@ uint64_t get_function_address_in_pid(const char *function_name, const char *imag
     
     return get_range_for_symbol(resolved_symbol).location;
 }
+
+#endif // !defined(__arm64__)

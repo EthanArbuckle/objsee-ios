@@ -9,8 +9,13 @@
 #include "tracer_internal.h"
 
 #define MAX_TYPE_LEN 1024
-#define IS_VALID_ADDR(addr) ((addr) && ((addr) & 0x7) == 0 && (addr) >= 0x100000000 && (addr) <= 0x2000000000)
 #define MAX_PARAMS 32
+
+#if __LP64__
+#define IS_VALID_ADDR(addr) ((addr) && ((addr) & 0x7) == 0 && (addr) >= 0x100000000ULL && (addr) <= 0x2000000000ULL)
+#else
+#define IS_VALID_ADDR(addr) ((addr) && ((addr) & 0x3) == 0 && (addr) >= 0x1000 && (addr) <= 0xC0000000)
+#endif 
 
 static size_t append_to_block(char *dest, size_t dest_size, size_t current_pos, const char *src) {
     if (dest == NULL || src == NULL || current_pos >= dest_size) {

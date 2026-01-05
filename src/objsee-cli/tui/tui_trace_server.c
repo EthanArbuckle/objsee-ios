@@ -4,6 +4,12 @@
 //
 //  Created by Ethan Arbuckle on 12/21/24.
 //
+
+#if !defined(__arm64__)
+#warning "TUI Trace Server is only supported on arm64 architectures."
+
+#else
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <netinet/in.h>
 #include <yyjson.h>
@@ -753,3 +759,5 @@ int run_tui_trace_server(tracer_config_t *config) {
     cleanup_ui();
     return 0;
 }
+
+#endif // !defined(__arm64__)
