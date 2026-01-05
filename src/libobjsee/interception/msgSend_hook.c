@@ -150,11 +150,10 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
     }
     else {
-        bool is_meta = is_class_method_fast(self_class, _cmd);
         ctx->last_class_cache.cls = self_class;
-        ctx->last_class_cache.name = is_meta ? class_getName(object_getClass(self)) : class_getName(self_class);
-        ctx->last_class_cache.is_meta = is_meta;
-        
+        ctx->last_class_cache.name = class_getName(self_class);
+        ctx->last_class_cache.is_meta = is_class_method_fast(self_class, _cmd);
+
         frame->self_class = self_class;
         frame->self_class_name = ctx->last_class_cache.name;
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
@@ -189,25 +188,16 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
         .method_signature = NULL,
     };
     
-    char local_stack_copy_buffer[1024 * 2];
-    size_t stack_size_to_read = sizeof(local_stack_copy_buffer);
-    vm_size_t bytes_read = 0;
-
-    bool capture_args = ctx->capture_arguments && ctx->stack_depth <= 32 && strstr(frame->selector_name, ":") != NULL;
-    if (__builtin_expect(capture_args, 1)) {
-        kern_return_t kr = vm_read_overwrite(mach_task_self(), (vm_address_t)stack_ptr, stack_size_to_read, (vm_address_t)local_stack_copy_buffer, &bytes_read);
-        if (kr == KERN_SUCCESS && bytes_read > 0) {
-            capture_arguments(g_tracer_ctx, frame, local_stack_copy_buffer, &event);
-        }
-        else {
-            printf("Failed to read arg stack: %s\n", mach_error_string(kr));
-        }
+    if (ctx->capture_arguments && ctx->stack_depth <= 32 && selector_has_arguments(frame->selector_name)) {
+        char local_stack_copy_buffer[2048];
+        memcpy(local_stack_copy_buffer, stack_ptr, sizeof(local_stack_copy_buffer));
+        capture_arguments(g_tracer_ctx, frame, local_stack_copy_buffer, &event);
     }
     
     tracer_handle_event(g_tracer_ctx, &event);
     
-    if (__builtin_expect(event.arguments != NULL, 1)) {
-         free_event_arguments(&event);
+    if (__builtin_expect(event.arguments != NULL, 0)) {
+        free_event_arguments(&event);
     }
     
     ctx->trace_depth += 1;
