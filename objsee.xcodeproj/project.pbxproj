@@ -74,6 +74,8 @@
 		5FBAC0572D4FBA1300AF19D8 /* arg_capture.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FBAC0532D4FBA1300AF19D8 /* arg_capture.h */; };
 		5FBAC0582D4FBA1300AF19D8 /* arg_capture.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FBAC0532D4FBA1300AF19D8 /* arg_capture.h */; };
 		5FBAC0592D4FBA1300AF19D8 /* arg_capture.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FBAC0542D4FBA1300AF19D8 /* arg_capture.c */; };
+		5FC397522F0B361C00394C3A /* logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FC397512F0B361800394C3A /* logging.h */; };
+		5FC397532F0B361C00394C3A /* logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FC397512F0B361800394C3A /* logging.h */; };
 		5FC397552F0BC1A100394C3A /* yyjson.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FC397542F0BC1A100394C3A /* yyjson.c */; };
 		5FC397562F0BDD4800394C3A /* yyjson.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FC397542F0BC1A100394C3A /* yyjson.c */; };
 		5FCA29B52CFC496900D7BB08 /* msgSend_hook.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FCA29AD2CFC496900D7BB08 /* msgSend_hook.h */; };
@@ -222,6 +224,7 @@
 		5FBAC04D2D4FB81600AF19D8 /* tmpfs_overlay.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = tmpfs_overlay.m; sourceTree = "<group>"; };
 		5FBAC0532D4FBA1300AF19D8 /* arg_capture.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arg_capture.h; sourceTree = "<group>"; };
 		5FBAC0542D4FBA1300AF19D8 /* arg_capture.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = arg_capture.c; sourceTree = "<group>"; };
+		5FC397512F0B361800394C3A /* logging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = logging.h; sourceTree = "<group>"; };
 		5FC397542F0BC1A100394C3A /* yyjson.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = yyjson.c; path = dependencies/yyjson/src/yyjson.c; sourceTree = "<group>"; };
 		5FCA29AD2CFC496900D7BB08 /* msgSend_hook.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msgSend_hook.h; sourceTree = "<group>"; };
 		5FCA29AE2CFC496900D7BB08 /* msgSend_hook.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = msgSend_hook.c; sourceTree = "<group>"; };
@@ -352,6 +355,7 @@
 				5FCA29D42CFC4CEB00D7BB08 /* deploy_to_device.py */,
 				5FF45BE72D333EC50073F42E /* kat */,
 				5FAF157C2C7E4CA100E10412 /* src/libobjsee */,
+				5FC397512F0B361800394C3A /* logging.h */,
 				5FF45BFD2D333F8B0073F42E /* src/objsee-cli */,
 				5FF45C0A2D333F980073F42E /* src/libobjseeTests */,
 				5F9EE5C42D575FB400A32B14 /* testapp */,
@@ -583,6 +587,7 @@
 				5FCA29C52CFC497300D7BB08 /* transport.h in Headers */,
 				5FCA2A3F2CFD910700D7BB08 /* config_decode.h in Headers */,
 				5FB1F2B52D4C8384007F6D70 /* realized_class_tracking.h in Headers */,
+				5FC397522F0B361C00394C3A /* logging.h in Headers */,
 				5FCA2A402CFD910700D7BB08 /* config_encode.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -598,6 +603,7 @@
 				5FBAC0522D4FB81600AF19D8 /* tmpfs_overlay.h in Headers */,
 				5F7084962D5E2C7300329B4E /* objc-internal.h in Headers */,
 				5F34BF892D01AF9C0076EB3C /* tracer_types.h in Headers */,
+				5FC397532F0B361C00394C3A /* logging.h in Headers */,
 				5FF45BD72D333EBF0073F42E /* encoding_size.h in Headers */,
 				5FF45C042D333F8B0073F42E /* crash_handler.h in Headers */,
 				5FF45C052D333F8B0073F42E /* mach_excServer.h in Headers */,

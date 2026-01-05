@@ -5,9 +5,9 @@
 //  Created by Ethan Arbuckle on 11/30/24.
 //
 
-#include <os/log.h>
 #include <arm_neon.h>
 #include "tracer_internal.h"
+#include "logging.h"
 
 typedef struct {
     Class isa;
@@ -103,7 +103,8 @@ void tracer_set_error(tracer_t *tracer, const char *format, ...) {
     va_end(args);
     
     printf("Error: %s\n", tracer->last_error);
-    os_log(OS_LOG_DEFAULT, "Error:  %s", tracer->last_error);
+    objsee_log("Error: %s", tracer->last_error);
+    
     pthread_mutex_unlock(&tracer->error_lock);
 }
 

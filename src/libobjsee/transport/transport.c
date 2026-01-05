@@ -6,12 +6,13 @@
 //
 
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <sys/param.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include "tracer_internal.h"
 #include "transport.h"
-#include <os/log.h>
+#include "logging.h"
 
 #define MAX_RETRIES 3
 #define RETRY_BASE_DELAY_MS 100
@@ -126,7 +127,7 @@ static tracer_result_t init_socket_transport(tracer_t *tracer, const tracer_tran
     for (int i = 0; i < MAX_RETRIES; i++) {
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd < 0) {
-            os_log(OS_LOG_DEFAULT, "Failed to create socket on attempt %d", i + 1);
+            objsee_log("Failed to create socket on attempt %d", i + 1);
             continue;
         }
         
@@ -142,7 +143,7 @@ static tracer_result_t init_socket_transport(tracer_t *tracer, const tracer_tran
         }
                 
         if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-            os_log(OS_LOG_DEFAULT, "Connection attempt %d failed: %s (host: %s, port: %d)", i + 1, strerror(errno), config->host, config->port);
+            objsee_log("Connection attempt %d failed: %s (host: %s, port: %d)", i + 1, strerror(errno), config->host, config->port);
             close(sockfd);
             sleep(1);
             continue;
@@ -150,7 +151,7 @@ static tracer_result_t init_socket_transport(tracer_t *tracer, const tracer_tran
         
         connected = true;
         if (i > 0) {
-            os_log(OS_LOG_DEFAULT, "Successfully connected on attempt %d", i + 1);
+            objsee_log("Successfully connected on attempt %d", i + 1);
         }
         break;
     }
@@ -207,14 +208,14 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     ctx->fd = -1;
     
     if (pthread_mutex_init(&ctx->write_lock, NULL) != 0) {
-        os_log(OS_LOG_DEFAULT, "Failed to create write lock");
+        objsee_log("Failed to create write lock");
         free(ctx);
         tracer->transport_context = NULL;
         return TRACER_ERROR_INITIALIZATION;
     }
     
     if (pthread_mutex_init(&ctx->queue.lock, NULL) != 0) {
-        os_log(OS_LOG_DEFAULT, "Failed to create queue.lock");
+        objsee_log("Failed to create queue.lock");
         pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
         tracer->transport_context = NULL;
@@ -222,7 +223,7 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     }
     
     if (pthread_cond_init(&ctx->queue.not_empty, NULL) != 0) {
-        os_log(OS_LOG_DEFAULT, "Failed to create queue.not_empty");
+        objsee_log("Failed to create queue.not_empty");
         pthread_mutex_destroy(&ctx->queue.lock);
         pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
@@ -231,7 +232,7 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     }
     
     if (pthread_cond_init(&ctx->queue.not_full, NULL) != 0) {
-        os_log(OS_LOG_DEFAULT, "Failed to create queue.not_full");
+        objsee_log("Failed to create queue.not_full");
         pthread_cond_destroy(&ctx->queue.not_empty);
         pthread_mutex_destroy(&ctx->queue.lock);
         pthread_mutex_destroy(&ctx->write_lock);
@@ -255,7 +256,7 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     ctx->running = true;
     int thread_err = pthread_create(&ctx->transport_thread, NULL, transport_thread, tracer);
     if (thread_err != 0) {
-        os_log(OS_LOG_DEFAULT, "Failed to create transport thread: %s", strerror(thread_err));
+        objsee_log("Failed to create transport thread: %s", strerror(thread_err));
         free(ctx->queue.messages);
         pthread_cond_destroy(&ctx->queue.not_full);
         pthread_cond_destroy(&ctx->queue.not_empty);
@@ -361,7 +362,7 @@ tracer_result_t transport_send(tracer_t *tracer, const void *data, size_t length
             if (tracer->transport_context) {
                 transport_context_t *transport = tracer->transport_context;
                 write(transport->fd, data, length);
-                os_log(OS_LOG_DEFAULT, "%s", (const char *)data);
+                objsee_log("%s", (const char *)data);
             }
             break;
         }

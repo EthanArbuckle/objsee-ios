@@ -6,7 +6,6 @@
 //
 
 #include <mach/mach.h>
-#include <os/log.h>
 #include "realized_class_tracking.h"
 #include "objc_arg_description.h"
 #include "tracer_internal.h"
@@ -14,8 +13,7 @@
 #include "signal_guard.h"
 #include "encoding_size.h"
 #include "objc-internal.h"
-
-#define printf(...) os_log(OS_LOG_DEFAULT, __VA_ARGS__)
+#include "logging.h"
 
 __attribute__((aligned(16), always_inline, hot))
 void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_frame_t *frame, void *stack_base, tracer_event_t *event) {
@@ -89,14 +87,13 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
         event_arg->description = NULL;
         
         if (_objc_isTaggedPointer(event_arg->address)) {
-            os_log(OS_LOG_DEFAULT, "Tagged pointer at address %p\n", event_arg->address);
             continue;
         }
         
         char arg_type[256];
         method_getArgumentType(method, i, arg_type, sizeof(arg_type));
         if (arg_type[0] == '\0') {
-            printf("Failed to get type encoding for argument %d\n", i);
+            objsee_log("Failed to get type encoding for argument %d\n", i);
             continue;
         }
         
@@ -113,7 +110,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
         
         event_arg->size = get_size_of_type_from_type_encoding(event_arg->type_encoding);
         if (event_arg->size == 0) {
-            printf("Failed to get size of arg %d of type %s\n", i, event_arg->type_encoding);
+            objsee_log("Failed to get size of arg %d of type %s\n", i, event_arg->type_encoding);
             continue;
         }
         
@@ -168,7 +165,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             if (description_for_argument(event_arg, g_tracer_ctx->config.format.args, description_buf, sizeof(description_buf)) != KERN_SUCCESS) {
                 const char *class_name = event_arg->objc_class_name ? event_arg->objc_class_name : "unknown";
                 const char *sel_name = event->method_name ? event->method_name : "unknown";
-                printf("Failed to get description for objc argument %d of type %s, class: %s, sel: %s, sig: %s\n", i, event_arg->type_encoding, class_name, sel_name, event->method_signature);
+                objsee_log("Failed to get description for objc argument %d of type %s, class: %s, sel: %s, sig: %s\n", i, event_arg->type_encoding, class_name, sel_name, event->method_signature);
                 continue;
             }
             
@@ -188,21 +185,21 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             }
             
             if ((uintptr_t)event_arg->address < 0x1000) {
-                printf("Invalid argument address: %p\n", event_arg->address);
+                objsee_log("Invalid argument address: %p\n", event_arg->address);
                 vm_deallocate(mach_task_self(), type_copy, type_len);
                 continue;
             }
             
             vm_address_t arg_value_buf;
             if (vm_allocate(mach_task_self(), &arg_value_buf, event_arg->size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
-                printf("Failed to allocate memory for argument value with size %zu\n", event_arg->size);
+                objsee_log("Failed to allocate memory for argument value with size %zu\n", (size_t)event_arg->size);
                 vm_deallocate(mach_task_self(), type_copy, type_len);
                 continue;
             }
             
             kern_return_t kr = vm_read_overwrite(mach_task_self(), (vm_address_t)event_arg->address, event_arg->size, (vm_address_t)arg_value_buf, &event_arg->size);
             if (kr != KERN_SUCCESS) {
-                printf("Failed to read argument value at address %p: %s\n", event_arg->address, mach_error_string(kr));
+                objsee_log("Failed to read argument value at address %p: %s\n", event_arg->address, mach_error_string(kr));
                 vm_deallocate(mach_task_self(), arg_value_buf, event_arg->size);
                 vm_deallocate(mach_task_self(), type_copy, type_len);
                 continue;
@@ -213,7 +210,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             
             char description_buf[1024];
             if (description_for_argument(event_arg, g_tracer_ctx->config.format.args, description_buf, sizeof(description_buf)) != KERN_SUCCESS) {
-                printf("Failed to get description for basic argument %d of type %s. class: %s, method: %s, method signature: %s\n", i, event_arg->type_encoding, event->class_name, event->method_name, event->method_signature);
+                objsee_log("Failed to get description for basic argument %d of type %s. class: %s, method: %s, method signature: %s\n", i, event_arg->type_encoding, event->class_name, event->method_name, event->method_signature);
                 vm_deallocate(mach_task_self(), arg_value_buf, event_arg->size);
                 event_arg->address = (void *)original_arg_address;
                 continue;

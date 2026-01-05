@@ -5,9 +5,9 @@
 //  Created by Ethan Arbuckle on 1/17/25.
 //
 
-#include <os/log.h>
 #include <dlfcn.h>
 #include "symbolication.h"
+#include "logging.h"
 
 static struct {
     bool initialized;
@@ -147,7 +147,7 @@ static kern_return_t init_core_symbolication(void) {
         for (size_t i = 1; i < sizeof(CS) / sizeof(void *); i++) {
             if (((void **)(&CS))[i] == NULL) {
                 CS.initialized = false;
-                os_log(OS_LOG_DEFAULT, "Failed to locate symbol %lu\n", i);
+                objsee_log("Failed to locate symbol %lu\n", i);
                 return;
             }
         }

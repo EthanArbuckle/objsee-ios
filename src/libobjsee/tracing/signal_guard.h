@@ -10,8 +10,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <signal.h>
-#include <os/log.h>
-
+#include "logging.h"
 
 /**
  * Block signals while executing a block of code.
@@ -68,7 +67,7 @@ typedef struct {
 
 static void _sig_ignoring_handler(int signo) {
     if (g_sig_ignoring) {
-        os_log(OS_LOG_DEFAULT, "Handler called for signal %d at depth %d\n", signo, g_sig_ignore_depth);
+        objsee_log("Handler called for signal %d at depth %d\n", signo, g_sig_ignore_depth);
         siglongjmp(g_sig_ignore_jmpbuf, signo);
     }
 }

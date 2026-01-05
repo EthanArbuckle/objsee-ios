@@ -7,9 +7,9 @@
 
 #ifndef BUILDING_CLI_TOOL
 
-#include <os/log.h>
 #include <dlfcn.h>
 #include "config_decode.h"
+#include "logging.h"
 
 OBJC_EXPORT void objsee_main(const char *encoded_config_string, bool from_dyld_insert);
 static bool determine_if_from_dyld_insert(const char *dyld_insert_libraries);
@@ -31,7 +31,7 @@ static bool determine_if_from_dyld_insert(const char *dyld_insert_libraries);
 @implementation RuntimeEntryShim
 
 + (void)load {
-    write(STDOUT_FILENO, "objsee loaded", 17);
+    write(STDOUT_FILENO, "objsee loaded\n", 14);
     
     // The cli tool provides the configuration for the tracer via an environment variable
     const char *encoded_config_string = getenv(CONFIG_ENV_VAR);
@@ -56,7 +56,7 @@ static bool determine_if_from_dyld_insert(const char *dyld_insert_libraries) {
     bool from_dyld_insert = false;
     Dl_info info;
     if (dladdr((void *)objsee_main, &info) == 0) {
-        os_log(OS_LOG_DEFAULT, "Failed to get dl_info for objsee_main");
+        objsee_log("Failed to get dl_info for objsee_main");
         return false;
     }
     
@@ -93,14 +93,14 @@ void objsee_main(const char *encoded_config_string, bool from_dyld_insert) {
     tracer_config_t config = {0};
     if (encoded_config_string) {
         if (decode_tracer_config(encoded_config_string, &config) != TRACER_SUCCESS) {
-            os_log(OS_LOG_DEFAULT, "Failed to decode tracer configuration");
+            objsee_log("Failed to decode tracer configuration");
             return;
         }
         
         config.from_dyld_insert = from_dyld_insert;
     }
     else {
-        os_log(OS_LOG_DEFAULT, "No config provided, using defaults");
+        objsee_log("No config provided, using defaults");
         config = (tracer_config_t) {
             .transport = TRACER_TRANSPORT_SOCKET,
             .from_dyld_insert = from_dyld_insert,
@@ -127,7 +127,7 @@ void objsee_main(const char *encoded_config_string, bool from_dyld_insert) {
     
     const char *config_description = copy_config_description(config);
     if (config_description != NULL) {
-        os_log(OS_LOG_DEFAULT, "libobjsee config: %{PUBLIC}s", config_description);
+        objsee_log("libobjsee config: %s", config_description);
         free((void *)config_description);
     }
     
@@ -136,7 +136,7 @@ void objsee_main(const char *encoded_config_string, bool from_dyld_insert) {
         tracer_error_t *error = NULL;
         tracer_t *tracer = tracer_create_with_config(config, &error);
         if (tracer == NULL) {
-            os_log(OS_LOG_DEFAULT, "Failed to create tracer: %s", error->message);
+            objsee_log("Failed to create tracer: %s", error->message);
             free_error(error);
             return;
         }
@@ -154,11 +154,11 @@ void objsee_main(const char *encoded_config_string, bool from_dyld_insert) {
         tracer_result_t ret = -1;
         for (int attempt = 0; attempt < 3; attempt++) {
             if ((ret = tracer_start(tracer)) == TRACER_SUCCESS) {
-                os_log(OS_LOG_DEFAULT, "Tracer started");
+                objsee_log("Tracer started");
                 break;
             }
             else {
-                os_log(OS_LOG_DEFAULT, "Failed to start tracer: %d (attempt %d)", ret, attempt);
+                objsee_log("Failed to start tracer: %d (attempt %d)", ret, attempt);
                 sleep(1);
             }
         }
