@@ -417,7 +417,14 @@ static kern_return_t _description_for_struct(const tracer_argument_t *arg, trace
             }
         }
         else {
-            const char *decoded_struct = get_struct_description_from_type_encoding(arg->type_encoding);
+            // Try to decode the struct, including the values of its fields
+            const char *decoded_struct = get_struct_description_with_values(arg->type_encoding, arg->address);
+            if (decoded_struct == NULL) {
+                // If that failed, try to decode just the struct layout without field values
+                decoded_struct = get_struct_description_from_type_encoding(arg->type_encoding);
+            }
+            
+            // Fallback to showing address + type encoding
             if (decoded_struct == NULL) {
                 if (snprintf(out_buf, buf_size, "{%p: %s}", arg->address, arg->type_encoding) >= buf_size) {
                     return KERN_NO_SPACE;

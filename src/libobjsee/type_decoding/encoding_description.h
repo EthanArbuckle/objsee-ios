@@ -30,4 +30,6 @@ char *get_struct_description_from_type_encoding(const char *encoding);
 const char *get_name_of_type_from_type_encoding(const char *type_encoding);
 
 
+char *get_struct_description_with_values(const char *encoding, void *data);
+
 #endif /* encoding_description_h */
