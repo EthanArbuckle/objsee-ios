@@ -6,7 +6,7 @@
 //
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <json-c/json_tokener.h>
+#include <yyjson.h>
 #include <netinet/in.h>
 #include "crash_handler.h"
 #include "format.h"
@@ -23,35 +23,21 @@ static void handle_signal(int sig) {
 }
 
 static void print_json_event_formatted_output(const char *json_str, int len) {
-    struct json_tokener *tokener = json_tokener_new();
-    if (tokener == NULL) {
-        printf("Failed to create JSON tokener\n");
-        return;
-    }
-    
-    json_object *trace = json_tokener_parse_ex(tokener, json_str, len);
-    enum json_tokener_error jerr = json_tokener_get_error(tokener);
-    if (jerr != json_tokener_success) {
-        if (jerr != json_tokener_continue) {
-            printf("Failed to parse JSON: %s\n%s\n", json_tokener_error_desc(jerr), json_str);
-        }
-        
-        json_tokener_free(tokener);
+    yyjson_doc *doc = yyjson_read(json_str, len, 0);
+    if (doc == NULL) {
         return;
     }
 
-    json_object *formatted_obj;
-    if (json_object_object_get_ex(trace, "formatted_output", &formatted_obj)) {
-        const char *formatted = json_object_get_string(formatted_obj);
-        printf("%s\n", formatted);
+    yyjson_val *root = yyjson_doc_get_root(doc);
+    yyjson_val *formatted_obj = yyjson_obj_get(root, "formatted_output");
+    if (formatted_obj != NULL) {
+        puts(yyjson_get_str(formatted_obj));
     }
     else {
-        // Fall back to printing the entire JSON object
-        printf("%s\n", json_str);
+        puts(json_str);
     }
-    
-    json_object_put(trace);
-    json_tokener_free(tokener);
+
+    yyjson_doc_free(doc);
 }
 
 static bool pid_exists(pid_t pid) {
@@ -151,7 +137,7 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid, bool exception_h
         }
         usleep(10000);
     }
-    
+
     if (client_fd < 0) {
         if (!pid_exists(traced_pid)) {
             printf("Target process %d terminated before connection could be established\n", traced_pid);
@@ -210,7 +196,7 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid, bool exception_h
         
         usleep(1000);
     }
-    
+
     if (client_fd >= 0) {
         close(client_fd);
     }

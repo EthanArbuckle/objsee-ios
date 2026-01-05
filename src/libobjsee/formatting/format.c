@@ -6,11 +6,11 @@
 //
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <yyjson.h>
 #include <dlfcn.h>
-#include "encoding_description.h"
-#include <json-c/json_object.h>
-#include "tracer_internal.h"
 #include "color_utils.h"
+#include "encoding_description.h"
+#include "tracer_internal.h"
 
 #define EVENT_FORMAT_BUF_SIZE 4096     // Size of buffer used for building formatted strings for trace events
 #define BINDAT_FORMAT_BUF_SIZE 1024    // Size of the shared stack buffer each thread uses to build formatted strings for binary data
@@ -341,11 +341,10 @@ const char *build_formatted_event_str(const tracer_event_t *event, tracer_format
     return strdup(formatted_event_buf);
 }
 
-#define JSON_SAFE_ADD_FUNC(_root, _key, _ptr, _func) if (_ptr) json_object_object_add(_root, _key, _func(_ptr))
-#define JSON_ADD_INT(_root, _key, _ptr) JSON_SAFE_ADD_FUNC(_root, _key, _ptr, json_object_new_int)
-#define JSON_ADD_INT64(_root, _key, _ptr) JSON_SAFE_ADD_FUNC(_root, _key, _ptr, json_object_new_int64)
-#define JSON_ADD_BOOL(_root, _key, _ptr) JSON_SAFE_ADD_FUNC(_root, _key, _ptr, json_object_new_boolean)
-#define JSON_ADD_STRING(_root, _key, _ptr) JSON_SAFE_ADD_FUNC(_root, _key, _ptr, json_object_new_string)
+#define YYJSON_SAFE_ADD_STR(_doc, _obj, _key, _ptr) if (_ptr != NULL) yyjson_mut_obj_add_strcpy(_doc, _obj, _key, _ptr)
+#define YYJSON_SAFE_ADD_INT(_doc, _obj, _key, _ptr) if (_ptr) yyjson_mut_obj_add_int(_doc, _obj, _key, _ptr)
+#define YYJSON_SAFE_ADD_UINT(_doc, _obj, _key, _ptr) if (_ptr) yyjson_mut_obj_add_uint(_doc, _obj, _key, _ptr)
+#define YYJSON_SAFE_ADD_BOOL(_doc, _obj, _key, _ptr) if (_ptr) yyjson_mut_obj_add_bool(_doc, _obj, _key, _ptr)
 
 const char *build_json_event_str(const tracer_t *tracer, const tracer_event_t *event) {
     if (event == NULL || tracer == NULL) {
@@ -355,35 +354,41 @@ const char *build_json_event_str(const tracer_t *tracer, const tracer_event_t *e
     if (event->class_name == NULL || event->method_name == NULL) {
         return NULL;
     }
-    
-    json_object *root = json_object_new_object();
-    if (root == NULL) {
+
+    yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+    if (doc == NULL) {
         return NULL;
     }
-    
+
+    yyjson_mut_val *root = yyjson_mut_obj(doc);
+    if (root == NULL) {
+        yyjson_mut_doc_free(doc);
+        return NULL;
+    }
+    yyjson_mut_doc_set_root(doc, root);
+
     tracer_format_options_t format = tracer->config.format;
     if (format.include_formatted_trace) {
         const char *formatted = build_formatted_event_str(event, format);
-        if (formatted) {
-            JSON_ADD_STRING(root, "formatted_output", formatted);
+        if (formatted != NULL) {
+            yyjson_mut_obj_add_strcpy(doc, root, "formatted_output", formatted);
             free((void *)formatted);
         }
     }
     
     if (format.include_event_json) {
-        
-        JSON_ADD_STRING(root, "class", event->class_name);
-        JSON_ADD_STRING(root, "method", event->method_name);
-        JSON_ADD_BOOL(root, "is_class_method", event->is_class_method);
-        JSON_ADD_INT64(root, "thread_id", event->thread_id);
-        JSON_ADD_INT(root, "depth", event->real_depth);
-        JSON_ADD_STRING(root, "signature", event->method_signature);
-        
+        yyjson_mut_obj_add_strcpy(doc, root, "class", event->class_name);
+        yyjson_mut_obj_add_strcpy(doc, root, "method", event->method_name);
+        yyjson_mut_obj_add_bool(doc, root, "is_class_method", event->is_class_method);
+        yyjson_mut_obj_add_int(doc, root, "thread_id", event->thread_id);
+        yyjson_mut_obj_add_int(doc, root, "depth", event->real_depth);
+        YYJSON_SAFE_ADD_STR(doc, root, "signature", event->method_signature);
+
         if (format.args != TRACER_ARG_FORMAT_NONE) {
-            if (event->arguments && event->argument_count > 0) {
-                json_object *args_array = json_object_new_array();
+            if (event->arguments != NULL && event->argument_count > 0) {
+                yyjson_mut_val *args_array = yyjson_mut_arr(doc);
                 if (args_array == NULL) {
-                    json_object_put(root);
+                    yyjson_mut_doc_free(doc);
                     tracer_set_error((tracer_t *)tracer, "Failed to create JSON array for arguments");
                     return NULL;
                 }
@@ -394,32 +399,30 @@ const char *build_json_event_str(const tracer_t *tracer, const tracer_event_t *e
                         tracer_set_error((tracer_t *)tracer, "Argument type encoding is NULL");
                         continue;
                     }
-                    
-                    json_object *arg = json_object_new_object();
-                    if (arg == NULL) {
-                        json_object_put(args_array);
-                        json_object_put(root);
+
+                    yyjson_mut_val *arg = yyjson_mut_obj(doc);
+                    if (arg == NULL){
+                        yyjson_mut_doc_free(doc);
                         tracer_set_error((tracer_t *)tracer, "Failed to create JSON object for argument");
                         return NULL;
                     }
-                    
-                    JSON_ADD_STRING(arg, "type", get_name_of_type_from_type_encoding(curr_arg->type_encoding));
-                    JSON_ADD_STRING(arg, "class", curr_arg->objc_class_name);
-                    JSON_ADD_STRING(arg, "block_signature", curr_arg->block_signature);
-                    JSON_ADD_STRING(arg, "description", curr_arg->description);
-                    JSON_ADD_STRING(arg, "objc_class", curr_arg->objc_class_name);
-                    JSON_ADD_INT64(arg, "address", (uint64_t)curr_arg->address);
-                    JSON_ADD_INT64(arg, "size", curr_arg->size);
-                    json_object_array_add(args_array, arg);
+
+                    yyjson_mut_obj_add_strcpy(doc, arg, "type", get_name_of_type_from_type_encoding(curr_arg->type_encoding));
+                    YYJSON_SAFE_ADD_STR(doc, arg, "class", curr_arg->objc_class_name);
+                    YYJSON_SAFE_ADD_STR(doc, arg, "block_signature", curr_arg->block_signature);
+                    YYJSON_SAFE_ADD_STR(doc, arg, "description", curr_arg->description);
+                    YYJSON_SAFE_ADD_STR(doc, arg, "objc_class", curr_arg->objc_class_name);
+                    yyjson_mut_obj_add_uint(doc, arg, "address", (uint64_t)curr_arg->address);
+                    yyjson_mut_obj_add_uint(doc, arg, "size", curr_arg->size);
+                    yyjson_mut_arr_append(args_array, arg);
                 }
-                
-                json_object_object_add(root, "arguments", args_array);
+
+                yyjson_mut_obj_add_val(doc, root, "arguments", args_array);
             }
         }
     }
-    
-    const char *json_str = json_object_to_json_string(root);
-    char *result = json_str ? strdup(json_str) : NULL;
-    json_object_put(root);
+
+    char *result = yyjson_mut_write(doc, 0, NULL);
+    yyjson_mut_doc_free(doc);
     return result;
 }

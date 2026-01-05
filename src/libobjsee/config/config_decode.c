@@ -5,7 +5,7 @@
 //  Created by Ethan Arbuckle on 12/1/24.
 //
 
-#include <json-c/json_tokener.h>
+#include <yyjson.h>
 #include "config_decode.h"
 #include "format.h"
 
@@ -87,123 +87,145 @@ tracer_result_t decode_tracer_config(const char *config_str, tracer_config_t *co
     if (json_str == NULL) {
         return TRACER_ERROR_RUNTIME;
     }
-    
-    struct json_object *root = json_tokener_parse((const char *)json_str);
+
+    yyjson_doc *doc = yyjson_read((const char *)json_str, json_len, 0);
     free(json_str);
-    if (root == NULL) {
+    if (doc == NULL) {
         return TRACER_ERROR_RUNTIME;
     }
 
+    yyjson_val *root = yyjson_doc_get_root(doc);
     tracer_config_t config_out = {0};
     tracer_format_options_t format = {0};
 
-    json_object *obj;
-    if (json_object_object_get_ex(root, "port", &obj)) {
-        config_out.transport_config.port = json_object_get_int(obj);
+    yyjson_val *obj;
+
+    obj = yyjson_obj_get(root, "port");
+    if (obj != NULL) {
+        config_out.transport_config.port = yyjson_get_int(obj);
     }
     
-    if (json_object_object_get_ex(root, "host", &obj)) {
-        config_out.transport_config.host = strdup(json_object_get_string(obj));
+    obj = yyjson_obj_get(root, "host");
+    if (obj != NULL) {
+        config_out.transport_config.host = strdup(yyjson_get_str(obj));
     }
     
-    if (json_object_object_get_ex(root, "file", &obj)) {
-        config_out.transport_config.file_path = strdup(json_object_get_string(obj));
+
+    obj = yyjson_obj_get(root, "file");
+    if (obj != NULL) {
+        config_out.transport_config.file_path = strdup(yyjson_get_str(obj));
     }
-    
-    if (json_object_object_get_ex(root, "transport", &obj)) {
-        config_out.transport = json_object_get_int(obj);
+
+    obj = yyjson_obj_get(root, "transport");
+    if (obj != NULL) {
+        config_out.transport = yyjson_get_int(obj);
     }
-    
-    if (json_object_object_get_ex(root, "format", &obj)) {
-        json_object *format_obj = obj;
-        if (json_object_object_get_ex(obj, "include_formatted_trace", &format_obj)) {
-            format.include_formatted_trace = json_object_get_boolean(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "include_event_json", &format_obj)) {
-            format.include_event_json = json_object_get_boolean(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "output_as_json", &format_obj)) {
-            format.output_as_json = json_object_get_boolean(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "include_colors", &format_obj)) {
-            format.include_colors = json_object_get_boolean(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "include_thread_id", &format_obj)) {
-            format.include_thread_id = json_object_get_boolean(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "include_indents", &format_obj)) {
-            format.include_indents = json_object_get_boolean(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "indent_char", &format_obj)) {
-            format.indent_char = strdup(json_object_get_string(format_obj));
-        }
-        
-        if (json_object_object_get_ex(obj, "include_indent_separators", &format_obj)) {
-            format.include_indent_separators = json_object_get_boolean(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "indent_separator_char", &format_obj)) {
-            format.indent_separator_char = strdup(json_object_get_string(format_obj));
-        }
-        
-        if (json_object_object_get_ex(obj, "variable_separator_spacing", &format_obj)) {
-            format.variable_separator_spacing = json_object_get_boolean(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "static_separator_spacing", &format_obj)) {
-            format.static_separator_spacing = json_object_get_int(format_obj);
-        }
-        
-        if (json_object_object_get_ex(obj, "include_newline_in_formatted_trace", &format_obj)) {
-            format.include_newline_in_formatted_trace = json_object_get_boolean(format_obj);
+
+    obj = yyjson_obj_get(root, "format");
+    if (obj != NULL) {
+        yyjson_val *format_obj;
+
+        format_obj = yyjson_obj_get(obj, "include_formatted_trace");
+        if (format_obj != NULL) {
+            format.include_formatted_trace = yyjson_get_bool(format_obj);
         }
 
-        if (json_object_object_get_ex(obj, "arg_format", &format_obj)) {
-            format.args = json_object_get_int(format_obj);
+        format_obj = yyjson_obj_get(obj, "include_event_json");
+        if (format_obj != NULL) {
+            format.include_event_json = yyjson_get_bool(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "output_as_json");
+        if (format_obj != NULL) {
+            format.output_as_json = yyjson_get_bool(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "include_colors");
+        if (format_obj != NULL) {
+            format.include_colors = yyjson_get_bool(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "include_thread_id");
+        if (format_obj != NULL) {
+            format.include_thread_id = yyjson_get_bool(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "include_indents");
+        if (format_obj != NULL) {
+            format.include_indents = yyjson_get_bool(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "indent_char");
+        if (format_obj != NULL) {
+            format.indent_char = strdup(yyjson_get_str(format_obj));
+        }
+
+        format_obj = yyjson_obj_get(obj, "include_indent_separators");
+        if (format_obj != NULL) {
+            format.include_indent_separators = yyjson_get_bool(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "indent_separator_char");
+        if (format_obj != NULL) {
+            format.indent_separator_char = strdup(yyjson_get_str(format_obj));
+        }
+
+        format_obj = yyjson_obj_get(obj, "variable_separator_spacing");
+        if (format_obj != NULL) {
+            format.variable_separator_spacing = yyjson_get_bool(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "static_separator_spacing");
+        if (format_obj != NULL) {
+            format.static_separator_spacing = yyjson_get_int(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "include_newline_in_formatted_trace");
+        if (format_obj != NULL) {
+            format.include_newline_in_formatted_trace = yyjson_get_bool(format_obj);
+        }
+
+        format_obj = yyjson_obj_get(obj, "arg_format");
+        if (format_obj != NULL) {
+            format.args = yyjson_get_int(format_obj);
         }
         config_out.format = format;
     }
-    
-    if (json_object_object_get_ex(root, "filters", &obj)) {
-        size_t filter_count = json_object_array_length(obj);
             
+    obj = yyjson_obj_get(root, "filters");
+    if (obj != NULL) {
+        size_t filter_count = yyjson_arr_size(obj);
         if (filter_count > 0) {
             uint32_t valid_filters = 0;
             for (uint32_t i = 0; i < filter_count; i++) {
-                
-                json_object *single_filter = json_object_array_get_idx(obj, i);
-                json_object *single_filter_value;
-                
+                yyjson_val *single_filter = yyjson_arr_get(obj, i);
+                yyjson_val *single_filter_value;
+
                 config_out.filters[valid_filters].class_pattern = NULL;
-                if (json_object_object_get_ex(single_filter, "class", &single_filter_value)) {
-                    const char *class_pattern = json_object_get_string(single_filter_value);
-                    config_out.filters[valid_filters].class_pattern = strdup(class_pattern);
+                single_filter_value = yyjson_obj_get(single_filter, "class");
+                if (single_filter_value != NULL) {
+                    config_out.filters[valid_filters].class_pattern = strdup(yyjson_get_str(single_filter_value));
                 }
                 
                 config_out.filters[valid_filters].method_pattern = NULL;
-                if (json_object_object_get_ex(single_filter, "method", &single_filter_value)) {
-                    const char *method_pattern = json_object_get_string(single_filter_value);
-                    config_out.filters[valid_filters].method_pattern = strdup(method_pattern);
+                single_filter_value = yyjson_obj_get(single_filter, "method");
+                if (single_filter_value != NULL) {
+                    config_out.filters[valid_filters].method_pattern = strdup(yyjson_get_str(single_filter_value));
                 }
                 
                 config_out.filters[valid_filters].image_pattern = NULL;
-                if (json_object_object_get_ex(single_filter, "image", &single_filter_value)) {
-                    const char *image_pattern = json_object_get_string(single_filter_value);
-                    config_out.filters[valid_filters].image_pattern = strdup(image_pattern);
+                single_filter_value = yyjson_obj_get(single_filter, "image");
+                if (single_filter_value != NULL) {
+                    config_out.filters[valid_filters].image_pattern = strdup(yyjson_get_str(single_filter_value));
                 }
                 
                 config_out.filters[valid_filters].exclude = false;
-                if (json_object_object_get_ex(single_filter, "exclude", &single_filter_value)) {
-                    config_out.filters[valid_filters].exclude = json_object_get_boolean(single_filter_value);
+                single_filter_value = yyjson_obj_get(single_filter, "exclude");
+                if (single_filter_value != NULL) {
+                    config_out.filters[valid_filters].exclude = yyjson_get_bool(single_filter_value);
                 }
-                
-                if (config_out.filters[valid_filters].class_pattern || config_out.filters[valid_filters].method_pattern || config_out.filters[valid_filters].image_pattern) {
+
+                if (config_out.filters[valid_filters].class_pattern != NULL || config_out.filters[valid_filters].method_pattern != NULL || config_out.filters[valid_filters].image_pattern != NULL) {
                     valid_filters++;
                 }
             }
@@ -212,16 +234,18 @@ tracer_result_t decode_tracer_config(const char *config_str, tracer_config_t *co
     }
     
     config_out.tracer_delay_ms = 0;
-    if (json_object_object_get_ex(root, "tracer_delay_ms", &obj)) {
-        config_out.tracer_delay_ms = json_object_get_int(obj);
+    obj = yyjson_obj_get(root, "tracer_delay_ms");
+    if (obj != NULL) {
+        config_out.tracer_delay_ms = yyjson_get_int(obj);
     }
     
     config_out.use_symbol_rebinding = false;
-    if (json_object_object_get_ex(root, "use_symbol_rebinding", &obj)) {
-        config_out.use_symbol_rebinding = json_object_get_boolean(obj);
+    obj = yyjson_obj_get(root, "use_symbol_rebinding");
+    if (obj != NULL) {
+        config_out.use_symbol_rebinding = yyjson_get_bool(obj);
     }
-    
-    json_object_put(root);
+
+    yyjson_doc_free(doc);
 
     *config = config_out;
     return TRACER_SUCCESS;

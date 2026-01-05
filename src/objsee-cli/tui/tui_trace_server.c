@@ -5,8 +5,8 @@
 //  Created by Ethan Arbuckle on 12/21/24.
 //
 #include <CoreFoundation/CoreFoundation.h>
-#include <json-c/json_tokener.h>
 #include <netinet/in.h>
+#include <yyjson.h>
 #include "format.h"
 
 #if TARGET_OS_MAC && !TARGET_OS_IPHONE
@@ -464,33 +464,36 @@ static void redraw_all_windows(void) {
 }
 
 static void process_trace(const char *json_str) {
-    json_object *trace = json_tokener_parse(json_str);
-    if (trace == NULL) {
+    yyjson_doc *doc = yyjson_read(json_str, strlen(json_str), 0);
+    if (doc == NULL) {
         return;
     }
-    
-    json_object *obj;
+
+    yyjson_val *root = yyjson_doc_get_root(doc);
+
     tracer_event_t event = {0};
     event.thread_id = 0;
-    if (json_object_object_get_ex(trace, "thread_id", &obj)) {
-        event.thread_id = json_object_get_int64(obj);
+    yyjson_val *obj = yyjson_obj_get(root, "thread_id");
+    if (obj != NULL) {
+        event.thread_id = yyjson_get_sint(obj);
     }
-    
+
     if (event.thread_id == 0) {
-        json_object_put(trace);
+        yyjson_doc_free(doc);
         return;
     }
     
     bool did_create_tv = false;
     thread_view_t *tv = get_or_create_thread_view(event.thread_id, &did_create_tv);
     if (tv == NULL) {
-        json_object_put(trace);
+        yyjson_doc_free(doc);
         return;
     }
-    
-    if (json_object_object_get_ex(trace, "formatted_output", &obj)) {
-        const char *formatted = json_object_get_string(obj);
-        if (formatted) {
+
+    obj = yyjson_obj_get(root, "formatted_output");
+    if (obj != NULL) {
+        const char *formatted = yyjson_get_str(obj);
+        if (formatted != NULL) {
             record_line_for_thread(tv, formatted);
             update_counter++;
 
@@ -505,7 +508,8 @@ static void process_trace(const char *json_str) {
             }
         }
     }
-    json_object_put(trace);
+
+    yyjson_doc_free(doc);
 }
 
 static void handle_signal(int sig) {
