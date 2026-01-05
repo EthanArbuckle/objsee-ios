@@ -142,26 +142,31 @@ def deploy_to_device(local_path: Path, binary_deploy_info: BinaryInstallInformat
     except subprocess.CalledProcessError as e:
         logger.warning(f"Failed to delete existing binary on device with error: {e}")
 
-    # Copy local signed binary to device
+    # Copy the local one to the device
     try:
+        # Make sure the parent directory exists
+        run_command_on_device(f"mkdir -p {binary_deploy_info.on_device_path.parent.as_posix()}")
+
         copy_file_to_device(local_path, binary_deploy_info.on_device_path)
     except Exception as e:
         raise DeploymentError(
             f"Failed to copy {binary_deploy_info.on_device_path.as_posix()} to device with error: {e}"
         )
+    
+    # Sign the binary on-device with ldid
+    if binary_deploy_info.entitlements_file and binary_deploy_info.entitlements_file.exists():
+        root_prefix = determine_jb_root_prefix()
+        on_device_ents_path = root_prefix / "tmp/entitlements.xml"
+        on_device_ldid_path = root_prefix / "usr/bin/ldid"
 
-    root_prefix = determine_jb_root_prefix()
-    on_device_ents_path = root_prefix / "tmp/entitlements.xml"
-    try:
-        if binary_deploy_info.entitlements_file and binary_deploy_info.entitlements_file.exists():
+        try:
             copy_file_to_device(binary_deploy_info.entitlements_file, on_device_ents_path)
-    except Exception as e:
-        raise DeploymentError(f"Failed to copy entitlements file to device with error: {e}")
-
-    on_device_ldid_path = root_prefix / "usr/bin/ldid"
-    run_command_on_device(
-        f"{on_device_ldid_path.as_posix()} -S{on_device_ents_path.as_posix()} {binary_deploy_info.on_device_path.as_posix()}"
-    )
+            run_command_on_device(
+                f"{on_device_ldid_path.as_posix()} -S{on_device_ents_path.as_posix()} {binary_deploy_info.on_device_path.as_posix()}"
+            )
+        
+        except Exception as e:
+            raise DeploymentError(f"Failed to sign binary on device with error: {e}")
 
 
 if __name__ == "__main__":
