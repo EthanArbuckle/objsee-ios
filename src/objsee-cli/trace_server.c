@@ -8,11 +8,14 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <yyjson.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include "crash_handler.h"
 #include "format.h"
 
 // Max time to wait for a client (the process being traced) to connect
 #define ACCEPT_TIMEOUT_SECONDS 20
+#define RECV_BUFFER_SIZE (1024 * 64)
+#define POLL_TIMEOUT_MS 100
 
 static volatile int running = 1;
 static int server_fd = -1;
@@ -68,14 +71,10 @@ static int setup_socket(tracer_transport_config_t config) {
         return -1;
     }
     
-    int buffer_size = 1024 * 1024 * 2;
-    if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size)) < 0) {
-        printf("setsockopt(SO_RCVBUF) failed\n");
-    }
-    if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buffer_size, sizeof(buffer_size)) < 0) {
-        printf("setsockopt(SO_SNDBUF) failed\n");
-    }
-    
+    int buffer_size = 1024 * 1024 * 4;
+    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size));
+    setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buffer_size, sizeof(buffer_size));
+
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
         .sin_addr.s_addr = INADDR_ANY,
@@ -87,8 +86,8 @@ static int setup_socket(tracer_transport_config_t config) {
         close(fd);
         return -1;
     }
-    
-    if (listen(fd, 0) < 0) {
+
+    if (listen(fd, 1) < 0) {
         printf("Listen failed\n");
         close(fd);
         return -1;
@@ -117,25 +116,25 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid, bool exception_h
     struct sockaddr_in client_addr;
     socklen_t addr_len = sizeof(client_addr);
     time_t start_time = time(NULL);
-    while (pid_exists(traced_pid) && (time(NULL) - start_time) < ACCEPT_TIMEOUT_SECONDS) {
-        client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
-        if (client_fd >= 0) {
-            printf("Client connected successfully\n");
-            
-            // If setting up an exception handler failed earlier,
-            // try again now that a connection is established
-            if (exception_handler_needs_attachment) {
-                setup_exception_handler_on_process(traced_pid);
-            }
 
-            break;
+    struct pollfd pfd = { .fd = server_fd, .events = POLLIN };
+    while (pid_exists(traced_pid) && (time(NULL) - start_time) < ACCEPT_TIMEOUT_SECONDS) {
+        int ret = poll(&pfd, 1, POLL_TIMEOUT_MS);
+        if (ret > 0 && (pfd.revents & POLLIN)) {
+            
+            client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
+            if (client_fd >= 0) {
+                printf("Client connected successfully\n");
+                
+                // If setting up an exception handler failed earlier,
+                // try again now that a connection is established
+                if (exception_handler_needs_attachment) {
+                    setup_exception_handler_on_process(traced_pid);
+                }
+                
+                break;
+            }
         }
-        
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            printf("Accept failed with error: %s\n", strerror(errno));
-            break;
-        }
-        usleep(10000);
     }
 
     if (client_fd < 0) {
@@ -152,50 +151,69 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid, bool exception_h
     // Set non-blocking mode
     int flags = fcntl(client_fd, F_GETFL, 0);
     fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
-    
-    char buffer[8192] = {0};
+
+    char *buffer = malloc(RECV_BUFFER_SIZE);
+    if (buffer == NULL) {
+        close(client_fd);
+        close(server_fd);
+        return 1;
+    }
     size_t buffer_pos = 0;
 
-    while (running && pid_exists(traced_pid)) {
+    pfd.fd = client_fd;
+    pfd.events = POLLIN;
 
-        ssize_t bytes_read = recv(client_fd, buffer + buffer_pos, sizeof(buffer) - buffer_pos - 1, 0);
-        if (bytes_read > 0) {
-            
-            buffer_pos += bytes_read;
-            buffer[buffer_pos] = '\0';
-            
-            char *json_start = buffer;
-            __unused char *json_end = buffer;
-            while ((json_end = strchr(json_start, '\n')) != NULL) {
-                size_t json_len = json_end - json_start;
-                if (json_len > 0) {
-                    *json_end = '\0';
-                    print_json_event_formatted_output(json_start, (int)json_len);
-                    *json_end = '\n';
+    while (running && pid_exists(traced_pid)) {
+        int ret = poll(&pfd, 1, POLL_TIMEOUT_MS);
+        if (ret < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            break;
+        }
+
+        if (ret == 0) {
+            continue;
+        }
+
+        if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+            break;
+        }
+
+        if (pfd.revents & POLLIN) {
+            ssize_t bytes_read = recv(client_fd, buffer + buffer_pos, RECV_BUFFER_SIZE - buffer_pos - 1, 0);
+            if (bytes_read > 0) {
+                buffer_pos += bytes_read;
+                buffer[buffer_pos] = '\0';
+
+                char *line_start = buffer;
+                char *line_end;
+                while ((line_end = memchr(line_start, '\n', buffer + buffer_pos - line_start)) != NULL) {
+                    size_t line_len = line_end - line_start;
+                    if (line_len > 0) {
+                        *line_end = '\0';
+                        print_json_event_formatted_output(line_start, (int)line_len);
+                    }
+                    line_start = line_end + 1;
                 }
-                json_start = json_end + 1;
+
+                size_t remaining = buffer + buffer_pos - line_start;
+                if (remaining > 0 && remaining < RECV_BUFFER_SIZE) {
+                    memmove(buffer, line_start, remaining);
+                    buffer_pos = remaining;
+                }
+                else {
+                    buffer_pos = 0;
+                }
             }
-            
-            size_t remaining = buffer + buffer_pos - json_start;
-            if (remaining > 0 && remaining < sizeof(buffer)) {
-                memmove(buffer, json_start, remaining);
-                buffer_pos = remaining;
-            }
-            else {
-                buffer_pos = 0;
+            else if (bytes_read == 0) {
+                printf("Traced process disconnected\n");
+                break;
             }
         }
-        else if (bytes_read == 0) {
-            printf("Traced process disconnected\n");
-            break;
-        }
-        else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-            printf("recv failed\n");
-            break;
-        }
-        
-        usleep(1000);
     }
+
+    free(buffer);
 
     if (client_fd >= 0) {
         close(client_fd);
