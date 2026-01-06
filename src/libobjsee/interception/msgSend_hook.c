@@ -7,7 +7,6 @@
 
 #include <objc/runtime.h>
 #include <mach/mach.h>
-#include <os/log.h>
 #include <dlfcn.h>
 #include "selector_deny_list.h"
 #include "event_handler.h"
@@ -15,6 +14,8 @@
 #include "arg_capture.h"
 #include "tracer.h"
 #include "rebind.h"
+
+extern void new_objc_msgSend(void);
 
 void *original_objc_msgSend = NULL;
 static pthread_key_t interception_stacktrace_thread_key;
@@ -46,13 +47,41 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
     return ctx;
 }
 
+__attribute__((always_inline))
+static inline bool is_valid_objc_object_fast(id obj) {
+    uintptr_t ptr = (uintptr_t)obj;
+    if (ptr < 0x4000 || (ptr & 0x3) != 0) {
+        return false;
+    }
+
+    uintptr_t isa;
+    volatile uintptr_t *isa_ptr = (volatile uintptr_t *)ptr;
+    isa = *isa_ptr;
+    if (isa < 0x4000 || (isa & 0x3) != 0) {
+        return false;
+    }
+
+    return true;
+}
+
 __attribute__((always_inline)) static inline
 bool is_class_method_fast(Class cls, SEL cmd) {
     // Most methods are instance methods
+    return false;
     if (__builtin_expect(!class_isMetaClass(cls), 1)) {
         return false;
     }
     return true;
+}
+
+__attribute__((always_inline))
+static inline bool selector_has_arguments(const char *sel_name) {
+    while (*sel_name) {
+        if (*sel_name++ == ':') {
+            return true;
+        }
+    }
+    return false;
 }
 
 void free_event_arguments(tracer_event_t *event) {
@@ -105,8 +134,7 @@ void free_event_arguments(tracer_event_t *event) {
 }
 
 __attribute__((aligned(16), always_inline, hot))
-SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t lr, void *stack_ptr) {
-    
+void *pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t lr, void *stack_ptr) {
     struct tracer_thread_context_t *ctx = get_thread_context();
     
     bool should_trace = true;
@@ -121,7 +149,12 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
     frame->lr = lr;
     if (!should_trace || !self || (uintptr_t)self <= 0x100 || selector_is_denylisted(_cmd)) {
         frame->traced = false;
-        return _cmd;
+        return original_objc_msgSend;
+    }
+
+    if (!is_valid_objc_object_fast(self)) {
+        frame->traced = false;
+        return original_objc_msgSend;
     }
     
     frame->_cmd = _cmd;
@@ -135,11 +168,10 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
     WHILE_IGNORING_SIGNALS({
         self_class = object_getClass(self);
     });
-        
-    // object_getClass() failed
-    if (self_class == NULL) {
+
+    if (self_class == NULL || !is_valid_objc_object_fast((id)self_class)) {
         frame->traced = false;
-        return _cmd;
+        return original_objc_msgSend;
     }
 
     // Resolve and cache class name, selector name, and whether the selector is a class method.
@@ -171,7 +203,7 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
     
     frame->traced = tracer_should_trace(g_tracer_ctx, frame);
     if (frame->traced == false) {
-        return _cmd;
+        return original_objc_msgSend;
     }
     
     // Create trace event
@@ -201,7 +233,7 @@ SEL pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t l
     }
     
     ctx->trace_depth += 1;
-    return _cmd;
+    return original_objc_msgSend;
 }
 
 __attribute__((aligned(16), always_inline, hot))
@@ -216,58 +248,6 @@ uintptr_t post_objc_msgSend_callback(void) {
     
     struct tracer_thread_context_frame_t *frame = &ctx->frames[current_depth];
     return frame->lr;
-}
-
-__attribute__((naked, always_inline, hot, aligned(16)))
-id new_objc_msgSend(id self, SEL _cmd, ...) {
-    __asm__ volatile(
-                     "sub sp, sp, #512\n"
-                     "stp x0, x1, [sp, #0]\n"
-                     "stp x2, x3, [sp, #16]\n"
-                     "stp x4, x5, [sp, #32]\n"
-                     "stp x6, x7, [sp, #48]\n"
-                     "stp x8, x9, [sp, #64]\n"
-                     "stp q0, q1, [sp, #80]\n"
-                     "stp q2, q3, [sp, #144]\n"
-                     
-                     "mov x2, x30\n"
-                     "mov x3, sp\n"
-                     "bl _pre_objc_msgSend_callback\n"
-                     "mov x17, x0\n"
-                     
-                     "ldp q2, q3, [sp, #144]\n"
-                     "ldp q0, q1, [sp, #80]\n"
-                     "ldp x8, x9, [sp, #64]\n"
-                     "ldp x6, x7, [sp, #48]\n"
-                     "ldp x4, x5, [sp, #32]\n"
-                     "ldp x2, x3, [sp, #16]\n"
-                     "ldp x0, x1, [sp, #0]\n"
-                     
-                     "add sp, sp, #512\n"
-                     
-                     "adrp x16, _original_objc_msgSend@PAGE\n"
-                     "add  x16, x16, _original_objc_msgSend@PAGEOFF\n"
-                     "ldr  x16, [x16]\n"
-                     "mov x1, x17\n"
-                     "blr x16\n"
-                     
-                     "sub sp, sp, #144\n"
-                     "stp x0, x1, [sp, #0]\n"
-                     "stp x2, x3, [sp, #16]\n"
-                     "stp q0, q1, [sp, #32]\n"
-                     "stp q2, q3, [sp, #64]\n"
-                     
-                     "bl _post_objc_msgSend_callback\n"
-                     "mov x30, x0\n"
-                     
-                     "ldp x0, x1, [sp, #0]\n"
-                     "ldp x2, x3, [sp, #16]\n"
-                     "ldp q0, q1, [sp, #32]\n"
-                     "ldp q2, q3, [sp, #64]\n"
-                     "add sp, sp, #144\n"
-                     
-                     "ret"
-                     );
 }
 
 void *get_original_objc_msgSend(void) {

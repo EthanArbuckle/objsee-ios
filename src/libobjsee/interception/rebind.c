@@ -22,43 +22,77 @@ struct symbol_rebinding_internal_t {
 };
 
 
-kern_return_t rebind_symbol(const char *symbol_to_hook, void *replacement_func, struct symbol_rebinding_internal_t *img_symbol_info, struct section_64 *symbol_section) {
+kern_return_t rebind_symbol_64(const char *symbol_to_hook, void *replacement_func, struct symbol_rebinding_internal_t *img_symbol_info, struct section_64 *symbol_section) {
+    uint32_t *indirect_symbols = (uint32_t *)((uintptr_t)img_symbol_info->indirect_symbol_table + symbol_section->reserved1 * sizeof(uint32_t));
+    uint64_t *sym_bindings = (uint64_t *)(symbol_section->addr + img_symbol_info->slide);
+    uint64_t num_entries = symbol_section->size / sizeof(uint64_t);
     
-    uint32_t *indirect_symbols = img_symbol_info->indirect_symbol_table + symbol_section->reserved1;
-    void **sym_bindings = (void **)(symbol_section->addr + img_symbol_info->slide);
-    for (uint i = 0; i < symbol_section->size / sizeof(void *); i++) {
-        
+    for (uint64_t i = 0; i < num_entries; i++) {
         uint32_t idx = indirect_symbols[i];
         if (idx & (INDIRECT_SYMBOL_ABS | INDIRECT_SYMBOL_LOCAL)) {
             continue;
         }
         
-        uint32_t string_table_offset = img_symbol_info->symbol_table[idx].n_un.n_strx;
-        const char *symbol_name = img_symbol_info->string_table + string_table_offset;
+        struct nlist_64 *sym = (struct nlist_64 *)img_symbol_info->symbol_table + idx;
+        uint32_t string_table_offset = sym->n_un.n_strx;
+        const char *symbol_name = (const char *)img_symbol_info->string_table + string_table_offset;
         if (symbol_name == NULL || strlen(symbol_name) < 1 || strcmp(&symbol_name[1], symbol_to_hook) != 0) {
             continue;
         }
         
-        if (vm_protect(mach_task_self(), (vm_address_t)sym_bindings, symbol_section->size, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) != KERN_SUCCESS) {
-            printf("Failed to update prot attrs of symbol bindings\n");
+        kern_return_t kr;
+        kr = vm_protect(mach_task_self(), (vm_address_t)sym_bindings, symbol_section->size, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
+        if (kr != KERN_SUCCESS) {
             return KERN_FAILURE;
         }
         
-        sym_bindings[i] = replacement_func;
+        sym_bindings[i] = (uint64_t)replacement_func;
         return KERN_SUCCESS;
     }
     
     return KERN_FAILURE;
 }
 
-void for_load_command_in_mach_header_64(struct mach_header_64 *mh, void (^callback)(struct load_command *lc)) {
+kern_return_t rebind_symbol_32(const char *symbol_to_hook, void *replacement_func, struct symbol_rebinding_internal_t *img_symbol_info, struct section *symbol_section) {
+    uint32_t *indirect_symbols = (uint32_t *)((uintptr_t)img_symbol_info->indirect_symbol_table + symbol_section->reserved1 * sizeof(uint32_t));
+    uint32_t *sym_bindings = (uint32_t *)(symbol_section->addr + img_symbol_info->slide);
+    uint32_t num_entries = symbol_section->size / sizeof(uint32_t);
     
+    for (uint32_t i = 0; i < num_entries; i++) {
+        uint32_t idx = indirect_symbols[i];
+        if (idx & (INDIRECT_SYMBOL_ABS | INDIRECT_SYMBOL_LOCAL)) {
+            continue;
+        }
+        
+        struct nlist *sym = (struct nlist *)img_symbol_info->symbol_table + idx;
+        uint32_t string_table_offset = sym->n_un.n_strx;
+        const char *symbol_name = (const char *)img_symbol_info->string_table + string_table_offset;
+        if (symbol_name == NULL || strlen(symbol_name) < 1 || strcmp(&symbol_name[1], symbol_to_hook) != 0) {
+            continue;
+        }
+        
+        kern_return_t kr;
+        kr = vm_protect(mach_task_self(), (vm_address_t)sym_bindings, symbol_section->size, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
+        if (kr != KERN_SUCCESS) {
+            return KERN_FAILURE;
+        }
+        
+        sym_bindings[i] = (uint32_t)(uintptr_t)replacement_func;
+        return KERN_SUCCESS;
+    }
+    
+    return KERN_FAILURE;
+}
+
+void for_load_command_in_mach_header(struct mach_header *mh, void (^callback)(struct load_command *lc)) {
     if (mh == NULL || callback == NULL) {
-        printf("Invalid args: mach_header: %p, callback: %p\n", mh, callback);
         return;
     }
     
-    struct load_command *lc = (struct load_command *)((mach_vm_address_t)mh + sizeof(struct mach_header_64));
+    bool is_64bit = (mh->magic == MH_MAGIC_64 || mh->magic == MH_CIGAM_64);
+    size_t mh_struct_size = is_64bit ? sizeof(struct mach_header_64) : sizeof(struct mach_header);
+    
+    struct load_command *lc = (struct load_command *)((mach_vm_address_t)mh + mh_struct_size);
     for (int command = 0; command < mh->ncmds; command++) {
         
         callback(lc);
@@ -66,9 +100,7 @@ void for_load_command_in_mach_header_64(struct mach_header_64 *mh, void (^callba
     }
 }
 
-
-kern_return_t hook_function_in_mach_header_64(const char *symbol_to_hook, void *replacement_func, struct mach_header_64 *mh) {
-    
+kern_return_t hook_function_in_mach_header(const char *symbol_to_hook, void *replacement_func, struct mach_header *mh) {
     if (mh == NULL || symbol_to_hook == NULL || replacement_func == NULL) {
         return TRACER_ERROR_INVALID_ARGUMENT;
     }
@@ -78,13 +110,22 @@ kern_return_t hook_function_in_mach_header_64(const char *symbol_to_hook, void *
         return TRACER_ERROR_INVALID_ARGUMENT;
     }
     
+    bool is_64bit = (mh->magic == MH_MAGIC_64 || mh->magic == MH_CIGAM_64);
+    
     struct symbol_rebinding_internal_t *img_symbol_info = (struct symbol_rebinding_internal_t *)malloc(sizeof(struct symbol_rebinding_internal_t));
+    if (img_symbol_info == NULL) {
+        return KERN_NO_SPACE;
+    }
     
     __block struct symtab_command *symbol_table_cmd = NULL;
     __block struct dysymtab_command *dynamic_symbol_table_cmd = NULL;
-    __block struct segment_command_64 *linkedit_cmd = NULL;
-    __block struct segment_command_64 *text_cmd = NULL;
-    for_load_command_in_mach_header_64(mh, ^(struct load_command *lc) {
+    __block uint64_t linkedit_vmaddr = 0;
+    __block uint64_t linkedit_fileoff = 0;
+    __block uint64_t text_vmaddr = 0;
+    __block bool found_linkedit = false;
+    __block bool found_text = false;
+    
+    for_load_command_in_mach_header(mh, ^(struct load_command *lc) {
         switch (lc->cmd) {
                 
             case LC_DYSYMTAB:
@@ -99,13 +140,26 @@ kern_return_t hook_function_in_mach_header_64(const char *symbol_to_hook, void *
                 
                 struct segment_command_64 *seg = (struct segment_command_64 *)lc;
                 if (strcmp(seg->segname, SEG_TEXT) == 0) {
-                    text_cmd = seg;
+                    text_vmaddr = seg->vmaddr;
+                    found_text = true;
+                } else if (strcmp(seg->segname, SEG_LINKEDIT) == 0) {
+                    linkedit_vmaddr = seg->vmaddr;
+                    linkedit_fileoff = seg->fileoff;
+                    found_linkedit = true;
                 }
+                break;
+            }
                 
-                else if (strcmp(seg->segname, SEG_LINKEDIT) == 0) {
-                    linkedit_cmd = (struct segment_command_64 *)seg;
+            case LC_SEGMENT: {
+                struct segment_command *seg = (struct segment_command *)lc;
+                if (strcmp(seg->segname, SEG_TEXT) == 0) {
+                    text_vmaddr = seg->vmaddr;
+                    found_text = true;
+                } else if (strcmp(seg->segname, SEG_LINKEDIT) == 0) {
+                    linkedit_vmaddr = seg->vmaddr;
+                    linkedit_fileoff = seg->fileoff;
+                    found_linkedit = true;
                 }
-                
                 break;
             }
                 
@@ -113,8 +167,8 @@ kern_return_t hook_function_in_mach_header_64(const char *symbol_to_hook, void *
                 break;
         }
     });
-    
-    if (linkedit_cmd == NULL || symbol_table_cmd == NULL || dynamic_symbol_table_cmd == NULL || text_cmd == NULL) {
+
+    if (!found_linkedit || symbol_table_cmd == NULL || dynamic_symbol_table_cmd == NULL || !found_text) {
         free(img_symbol_info);
         return KERN_FAILURE;
     }
@@ -124,50 +178,79 @@ kern_return_t hook_function_in_mach_header_64(const char *symbol_to_hook, void *
         return KERN_FAILURE;
     }
     
-    img_symbol_info->slide = (intptr_t)mh - text_cmd->vmaddr;
-    img_symbol_info->string_table = (void *)linkedit_cmd->vmaddr + symbol_table_cmd->stroff - linkedit_cmd->fileoff + img_symbol_info->slide;
-    img_symbol_info->symbol_table = (void *)linkedit_cmd->vmaddr + symbol_table_cmd->symoff - linkedit_cmd->fileoff + img_symbol_info->slide;
-    img_symbol_info->indirect_symbol_table = (void *)linkedit_cmd->vmaddr + dynamic_symbol_table_cmd->indirectsymoff - linkedit_cmd->fileoff + img_symbol_info->slide;
+    img_symbol_info->slide = (intptr_t)mh - text_vmaddr;
+    img_symbol_info->string_table = (void *)(linkedit_vmaddr + symbol_table_cmd->stroff - linkedit_fileoff + img_symbol_info->slide);
+    img_symbol_info->symbol_table = (void *)(linkedit_vmaddr + symbol_table_cmd->symoff - linkedit_fileoff + img_symbol_info->slide);
+    img_symbol_info->indirect_symbol_table = (void *)(linkedit_vmaddr + dynamic_symbol_table_cmd->indirectsymoff - linkedit_fileoff + img_symbol_info->slide);
     
-    __block struct section_64 *lazy_symbol_section = NULL;
-    __block struct section_64 *non_lazy_symbol_section = NULL;
-    for_load_command_in_mach_header_64(mh, ^(struct load_command *lc) {
-        
-        if (lc->cmd != LC_SEGMENT_64) {
-            return;
-        }
-        
-        struct segment_command_64 *seg = (struct segment_command_64 *)lc;
-        if (strcmp(seg->segname, SEG_DATA) != 0 && strcmp(seg->segname, "__DATA_CONST") != 0) {
-            return;
-        }
-        
-        for (int i = 0; i < seg->nsects; i++) {
+    __block struct section_64 *lazy_symbol_section_64 = NULL;
+    __block struct section_64 *non_lazy_symbol_section_64 = NULL;
+    __block struct section *lazy_symbol_section_32 = NULL;
+    __block struct section *non_lazy_symbol_section_32 = NULL;
+    
+    for_load_command_in_mach_header(mh, ^(struct load_command *lc) {
+        if (lc->cmd == LC_SEGMENT) {
+            struct segment_command *seg = (struct segment_command *)lc;
+            if (strcmp(seg->segname, SEG_DATA) != 0 && strcmp(seg->segname, "__DATA_CONST") != 0) {
+                return;
+            }
             
-            struct section_64 *sect = (struct section_64 *)((mach_vm_address_t)seg + sizeof(struct segment_command_64)) + i;
-            switch (sect->flags & SECTION_TYPE) {
-                    
-                case S_LAZY_SYMBOL_POINTERS:
-                    lazy_symbol_section = sect;
-                    break;
-                    
-                case S_NON_LAZY_SYMBOL_POINTERS:
-                    non_lazy_symbol_section = sect;
-                    break;
-                    
-                default:
-                    break;
+            for (uint32_t i = 0; i < seg->nsects; i++) {
+                struct section *sect = (struct section *)((uintptr_t)seg + sizeof(struct segment_command)) + i;
+                switch (sect->flags & SECTION_TYPE) {
+                    case S_LAZY_SYMBOL_POINTERS:
+                        lazy_symbol_section_32 = sect;
+                        break;
+                        
+                    case S_NON_LAZY_SYMBOL_POINTERS:
+                        non_lazy_symbol_section_32 = sect;
+                        break;
+                        
+                    default:
+                        break;
+                }
+            }
+        }
+        else if (lc->cmd == LC_SEGMENT_64) {
+            struct segment_command_64 *seg = (struct segment_command_64 *)lc;
+            if (strcmp(seg->segname, SEG_DATA) != 0 && strcmp(seg->segname, "__DATA_CONST") != 0) {
+                return;
+            }
+            
+            for (uint32_t i = 0; i < seg->nsects; i++) {
+                struct section_64 *sect = (struct section_64 *)((uintptr_t)seg + sizeof(struct segment_command_64)) + i;
+                switch (sect->flags & SECTION_TYPE) {
+                    case S_LAZY_SYMBOL_POINTERS:
+                        lazy_symbol_section_64 = sect;
+                        break;
+                        
+                    case S_NON_LAZY_SYMBOL_POINTERS:
+                        non_lazy_symbol_section_64 = sect;
+                        break;
+                        
+                    default:
+                        break;
+                }
             }
         }
     });
     
     kern_return_t ret = KERN_FAILURE;
-    if (lazy_symbol_section) {
-        ret = rebind_symbol(symbol_to_hook, replacement_func, img_symbol_info, lazy_symbol_section);
+    if (is_64bit) {
+        if (lazy_symbol_section_64 != NULL) {
+            ret = rebind_symbol_64(symbol_to_hook, replacement_func, img_symbol_info, lazy_symbol_section_64);
+        }
+        if (ret != KERN_SUCCESS && non_lazy_symbol_section_64 != NULL) {
+            ret = rebind_symbol_64(symbol_to_hook, replacement_func, img_symbol_info, non_lazy_symbol_section_64);
+        }
     }
-    
-    if (ret != KERN_SUCCESS && non_lazy_symbol_section) {
-        ret = rebind_symbol(symbol_to_hook, replacement_func, img_symbol_info, non_lazy_symbol_section);
+    else {
+        if (lazy_symbol_section_32 != NULL) {
+            ret = rebind_symbol_32(symbol_to_hook, replacement_func, img_symbol_info, lazy_symbol_section_32);
+        }
+        if (ret != KERN_SUCCESS && non_lazy_symbol_section_32 != NULL) {
+            ret = rebind_symbol_32(symbol_to_hook, replacement_func, img_symbol_info, non_lazy_symbol_section_32);
+        }
     }
     
     free(img_symbol_info);
@@ -175,7 +258,6 @@ kern_return_t hook_function_in_mach_header_64(const char *symbol_to_hook, void *
 }
 
 struct symbol_rebinding_t * _Nullable hook_function(const char *symbol_to_hook, void *replacement_func) {
-    
     if (symbol_to_hook == NULL || replacement_func == NULL) {
         return NULL;
     }
@@ -187,8 +269,8 @@ struct symbol_rebinding_t * _Nullable hook_function(const char *symbol_to_hook, 
     
     int hook_count = 0;
     for (int i = 0; i < _dyld_image_count(); i++) {
-        struct mach_header_64 *mh = (struct mach_header_64 *)_dyld_get_image_header(i);
-        if (hook_function_in_mach_header_64(symbol_to_hook, replacement_func, mh) == KERN_SUCCESS) {
+        struct mach_header *mh = (struct mach_header *)_dyld_get_image_header(i);
+        if (hook_function_in_mach_header(symbol_to_hook, replacement_func, mh) == KERN_SUCCESS) {
             hook_count++;
         }
     }
