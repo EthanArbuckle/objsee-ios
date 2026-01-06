@@ -17,70 +17,67 @@
 
 
 kern_return_t launch_app_with_encoded_tracer_config(NSString *bundleID, NSString *configString) {
-    NSDictionary *debugOptions = @{@"__Environment": @{@"DYLD_INSERT_LIBRARIES": [NSString stringWithUTF8String:OBJSEE_LIBRARY_PATH], @"OBJSEE_CONFIG": configString}};
-    NSDictionary *options = @{@"__ActivateSuspended" : @(NO), @"__UnlockDevice": @(YES), @"__DebugOptions": debugOptions};
-    
-    __block int launchStatus = 0;
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    void (^completionHandler)(NSError *) = ^(NSError *error) {
-        
-        launchStatus = error ? 0 : 1;
-        if (error) {
-            NSLog(@"app launch error: %@", error);
-            launchStatus = KERN_FAILURE;
-        }
-        else {
-            launchStatus = KERN_SUCCESS;
-        }
-        
-        dispatch_semaphore_signal(sem);
+    void *_SBServices_handle = dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", RTLD_NOW);
+    void *_SBSLaunchApplicationForDebugging = dlsym(_SBServices_handle, "SBSLaunchApplicationForDebugging");
+    if (_SBSLaunchApplicationForDebugging == NULL) {
+        NSLog(@"Failed to resolve SBSLaunchApplicationForDebugging(). Cannot launch app");
+        return KERN_FAILURE;
+    }
+
+    /*
+     SBSApplicationLaunchError SBSLaunchApplicationForDebugging(CFStringRef displayIdentifier,
+                                                                    CFURLRef openURL,
+                                                                    CFArrayRef arguments,
+                                                                    CFDictionaryRef environment,
+                                                                    CFStringRef stdOutPath,
+                                                                    CFStringRef stdErrorPath,
+                                                                    SBSApplicationLaunchFlags flags);
+     */
+    NSDictionary *environment = @{
+        @"DYLD_INSERT_LIBRARIES": [NSString stringWithUTF8String:OBJSEE_LIBRARY_PATH],
+        @"OBJSEE_CONFIG": configString
     };
     
-    // [FBSSystemService sharedService]
-    id systemService = ((id (*)(id, SEL))objc_msgSend)(NSClassFromString(@"FBSSystemService"), NSSelectorFromString(@"sharedService"));
-    if (!systemService) {
-        NSLog(@"Cannot launch, system service unavailable");
-        return KERN_FAILURE;
-    }
-    
-    void *_SBSCreateClientEntitlementEnforcementPort = dlsym(RTLD_DEFAULT, "SBSCreateClientEntitlementEnforcementPort");
-    if (_SBSCreateClientEntitlementEnforcementPort == NULL) {
-        NSLog(@"Failed to resolve SBSCreateClientEntitlementEnforcementPort");
-        return KERN_FAILURE;
-    }
-    
-    mach_port_t clientPort = ((mach_port_t (*)(void))_SBSCreateClientEntitlementEnforcementPort)();
-    
-    // [systemService openApplication:options:clientPort:withResult:]
-    SEL launchSelector = NSSelectorFromString(@"openApplication:options:clientPort:withResult:");
-    ((void (*)(id, SEL, NSString *, NSDictionary *, mach_port_t, void (^)(NSError *)))objc_msgSend)(systemService, launchSelector, bundleID, options, clientPort, completionHandler);
-    
-    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
-    return launchStatus;
+    int launchResult = ((int (*)(NSString *, CFURLRef, NSArray *, NSDictionary *, NSString *, NSString *, uint32_t))_SBSLaunchApplicationForDebugging)(bundleID, NULL, NULL, environment, NULL, NULL, 0);
+    return (launchResult == 0) ? KERN_SUCCESS : KERN_FAILURE;
 }
 
 kern_return_t terminate_app_if_running(NSString *bundleID) {
-    // [FBSSystemService sharedService]
-    id systemService = ((id (*)(id, SEL))objc_msgSend)(NSClassFromString(@"FBSSystemService"), NSSelectorFromString(@"sharedService"));
-    if (!systemService) {
-        NSLog(@"Cannot launch, system service unavailable");
-        return KERN_FAILURE;
+    void *_SBServices_handle = dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", RTLD_NOW);
+    void *_SBSProcessIDForDisplayIdentifier = dlsym(_SBServices_handle, "SBSProcessIDForDisplayIdentifier");
+    if (_SBSProcessIDForDisplayIdentifier) {
+        
+        // Check if the app is running, skip assertion creation if not
+        pid_t pid = -1;
+        Boolean found = ((Boolean (*)(NSString *, pid_t *))_SBSProcessIDForDisplayIdentifier)(bundleID, &pid);
+        if (!found || pid < 1) {
+            // App not running
+            return KERN_SUCCESS;
+        }
     }
     
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    __block bool success = false;
+    // Create termination assertion
+    void *_SBSApplicationTerminationAssertionCreateWithError = dlsym(_SBServices_handle, "SBSApplicationTerminationAssertionCreateWithError");
+    void *_SBSApplicationTerminationAssertionInvalidate = dlsym(_SBServices_handle, "SBSApplicationTerminationAssertionInvalidate");
+    if (_SBSApplicationTerminationAssertionCreateWithError == NULL || _SBSApplicationTerminationAssertionInvalidate == NULL) {
+        NSLog(@"Failed to resolve SBSApplicationTerminationAssertion functions. Cannot terminate app");
+        return KERN_FAILURE;
+    }
 
-    // [systemService terminateApplication:forReason:andReport:withDescription:completion:]
-    SEL terminateSelector = NSSelectorFromString(@"terminateApplication:forReason:andReport:withDescription:completion:");
-    ((void (*)(id, SEL, id, long long, BOOL, id, void (^)(void)))objc_msgSend)(systemService, terminateSelector, bundleID, 1, 0, nil, ^void(void) {
-        success = true;
-        dispatch_semaphore_signal(sem);
-    });
+    uint8_t error_code = 0;
+    void *assertion = ((void *(*)(void *, NSString *, uint8_t, uint8_t *))_SBSApplicationTerminationAssertionCreateWithError)(NULL, bundleID, UINT8_MAX, &error_code);
+    if (assertion != NULL) {
+        ((void (*)(void *))_SBSApplicationTerminationAssertionInvalidate)(assertion);
+    }
     
-    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC));
-    return success ? KERN_SUCCESS : KERN_FAILURE;
-}
+    if (error_code == 0) {
+        // Success. Wait a moment for the app to terminate
+        usleep(500000);
+        return KERN_SUCCESS;
+    }
 
+    return KERN_FAILURE;
+}
 
 void on_process_launch(NSString *bundleID, void (^completion)(pid_t pid)) {
     static dispatch_once_t onceToken;

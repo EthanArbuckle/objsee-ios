@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
             // Wait for the launch-listener to trigger or timeout
             dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
             if (options.pid <= 0) {
-                printf("Failed to launch app\n");
+                printf("The app was not launched\n");
                 return 1;
             }
             
