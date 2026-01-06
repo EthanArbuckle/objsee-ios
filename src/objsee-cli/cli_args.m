@@ -84,7 +84,6 @@ int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_c
             }
             config->tracer_delay_ms = (int)delay;
             i++;
-            printf("Setting tracer delay to %d ms\n", config->tracer_delay_ms);
             continue;
         }
         

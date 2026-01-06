@@ -31,6 +31,12 @@ static bool determine_if_from_dyld_insert(const char *dyld_insert_libraries);
 @implementation RuntimeEntryShim
 
 + (void)load {
+    // Avoid activating tracing when loaded into the cli tool itself
+    void *_objsee_cli_version = dlsym(RTLD_DEFAULT, "_objsee_cli_version");
+    if (_objsee_cli_version != NULL) {
+        return;
+    }
+
     write(STDOUT_FILENO, "objsee loaded\n", 14);
     
     // The cli tool provides the configuration for the tracer via an environment variable

@@ -19,6 +19,9 @@
 #include "highlight.h"
 
 #define OBJSEE_CLI_VERSION "0.0.1"
+const char *_objsee_cli_version(void) {
+    return OBJSEE_CLI_VERSION;
+}
 
 const char *OBJSEE_LIBRARY_PATH = "/var/jb/Library/Frameworks/libobjsee.framework/libobjsee";
 
