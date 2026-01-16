@@ -86,7 +86,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
         event_arg->block_signature = NULL;
         event_arg->description = NULL;
         
-        if (_objc_isTaggedPointer(event_arg->address)) {
+        if (_objc_isTaggedPointer(*(void **)event_arg->address)) {
             continue;
         }
         
@@ -130,11 +130,11 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
                 continue;
             }
             
-            size_t instance_size = class_getInstanceSize(object_class);
-            if (malloc_sz < instance_size) {
-                return;
+            // Skip classes that are not yet realized. Interacting with them is dangerous
+            if (!is_class_realized(object_class)) {
+                continue;
             }
-            
+
             WHILE_IGNORING_SIGNALS({
                 const char *class_name = object_getClassName(objc_object);
                 if (class_name == NULL) {
@@ -151,13 +151,6 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             });
             
             if (event_arg->objc_class_name == NULL) {
-                continue;
-            }
-            
-            // Interacting with unrealized classes is dangerous.
-            // Record the encounter so that it's captured on the next occurrence
-            if (has_seen_class(event_arg->objc_class) == false) {
-                record_class_encounter(event_arg->objc_class);
                 continue;
             }
             
