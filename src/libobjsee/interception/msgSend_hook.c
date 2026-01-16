@@ -298,9 +298,10 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
     }
     else {
         // Hook objc_msgSend using a jailbreak hooking library
-        const char *possible_lib_paths[2] = {
+        const char *possible_lib_paths[3] = {
             "/var/jb/usr/lib/libsubstrate.dylib",
             "/usr/lib/libsubstrate.dylib",
+            "/cores/binpack/usr/lib/libellekit.dylib"
         };
         
         void *jbhooker_handle = NULL;

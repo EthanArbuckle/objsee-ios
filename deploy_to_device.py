@@ -152,24 +152,26 @@ def deploy_to_device(local_path: Path, binary_deploy_info: BinaryInstallInformat
         raise DeploymentError(
             f"Failed to copy {binary_deploy_info.on_device_path.as_posix()} to device with error: {e}"
         )
-    
+
     # Sign the binary on-device with ldid
     root_prefix = determine_jb_root_prefix()
     on_device_ldid_path = root_prefix / "usr/bin/ldid"
+
     if binary_deploy_info.entitlements_file and binary_deploy_info.entitlements_file.exists():
+        on_device_ents_path = root_prefix / "tmp/entitlements.xml"
+
         try:
-            on_device_ents_path = root_prefix / "tmp/entitlements.xml"
             copy_file_to_device(binary_deploy_info.entitlements_file, on_device_ents_path)
-            run_command_on_device(
+        except Exception as e:
+            raise DeploymentError(f"Failed to copy entitlements file to device with error: {e}")
+
+        run_command_on_device(
                 f"{on_device_ldid_path.as_posix()} -S{on_device_ents_path.as_posix()} {binary_deploy_info.on_device_path.as_posix()}"
             )
-        except Exception as e:
-            raise DeploymentError(f"Failed to sign binary on device with error: {e}")
     else:
         run_command_on_device(
-            f"{on_device_ldid_path} -S {binary_deploy_info.on_device_path.as_posix()}"
+            f"{on_device_ldid_path.as_posix()} -S {binary_deploy_info.on_device_path.as_posix()}"
         )
-
 
 if __name__ == "__main__":
     logger.info("deploying binaries device")
