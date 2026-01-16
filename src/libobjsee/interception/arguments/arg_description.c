@@ -535,13 +535,31 @@ static kern_return_t _description_for_char_ptr(const tracer_argument_t *arg, tra
         if (snprintf(out_buf, buf_size, "%p", str) >= buf_size) {
             return KERN_NO_SPACE;
         }
+        return KERN_SUCCESS;
     }
-    else {
-        if (strlcpy(out_buf, str, buf_size) >= buf_size) {
-            return KERN_NO_SPACE;
+
+    size_t max_copy = buf_size - 1;
+    if (max_copy > 256) {
+        max_copy = 256;
+    }
+
+    size_t i = 0;
+    while (i < max_copy) {
+        unsigned char c = ((const unsigned char *)str)[i];
+        if (c == '\0') {
+            break;
         }
+        if ((c < 0x20 && c != '\t' && c != '\n' && c != '\r') || c >= 0x80) {
+            if (snprintf(out_buf, buf_size, "%p", str) >= buf_size) {
+                return KERN_NO_SPACE;
+            }
+            return KERN_SUCCESS;
+        }
+        out_buf[i] = c;
+        i++;
     }
-    
+    out_buf[i] = '\0';
+
     return KERN_SUCCESS;
 }
 
