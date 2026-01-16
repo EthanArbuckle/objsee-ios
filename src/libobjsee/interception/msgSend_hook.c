@@ -47,23 +47,6 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
     return ctx;
 }
 
-__attribute__((always_inline))
-static inline bool is_valid_objc_object_fast(id obj) {
-    uintptr_t ptr = (uintptr_t)obj;
-    if (ptr < 0x4000 || (ptr & 0x3) != 0) {
-        return false;
-    }
-
-    uintptr_t isa;
-    volatile uintptr_t *isa_ptr = (volatile uintptr_t *)ptr;
-    isa = *isa_ptr;
-    if (isa < 0x4000 || (isa & 0x3) != 0) {
-        return false;
-    }
-
-    return true;
-}
-
 __attribute__((always_inline)) static inline
 bool is_class_method_fast(Class cls, SEL cmd) {
     // Most methods are instance methods
@@ -151,11 +134,6 @@ void *pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t
         frame->traced = false;
         return original_objc_msgSend;
     }
-
-    if (!is_valid_objc_object_fast(self)) {
-        frame->traced = false;
-        return original_objc_msgSend;
-    }
     
     frame->_cmd = _cmd;
     frame->traced = true;
@@ -169,7 +147,7 @@ void *pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t
         self_class = object_getClass(self);
     });
 
-    if (self_class == NULL || !is_valid_objc_object_fast((id)self_class)) {
+    if (self_class == NULL) {
         frame->traced = false;
         return original_objc_msgSend;
     }
