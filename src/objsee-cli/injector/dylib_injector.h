@@ -13,10 +13,12 @@
 /**
  * Calls a function in a remote process
  * @param function_address The address of the function to call
+ * @param string_arg A string argument to pass to the function
+ * @param second_arg A second argument to pass to the function, or 0
  * @param pid The process ID to call the function in
  * @return KERN_SUCCESS on success, an error code on failure
  */
-kern_return_t call_remote_function_with_string(uint64_t function_address, const char *string_arg, pid_t pid);
+kern_return_t call_remote_function_with_string(uint64_t function_address, const char *string_arg, uint64_t second_arg, pid_t pid);
 
 /**
  * Injects a dylib into a remote process

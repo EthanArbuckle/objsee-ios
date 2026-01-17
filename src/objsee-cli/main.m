@@ -198,7 +198,7 @@ int main(int argc, char *argv[]) {
             }
             
             // Invoke entry point with the config
-            if (call_remote_function_with_string(objsee_main_addr, (char *)[configString UTF8String], options.pid) != KERN_SUCCESS) {
+            if (call_remote_function_with_string(objsee_main_addr, (char *)[configString UTF8String], 0, options.pid) != KERN_SUCCESS) {
                 printf("Failed to start objsee_main in process\n");
                 return 1;
             }
