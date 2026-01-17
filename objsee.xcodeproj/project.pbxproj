@@ -35,7 +35,6 @@
 		5F9EE6102D589B2700A32B14 /* arg_capture.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FBAC0542D4FBA1300AF19D8 /* arg_capture.c */; };
 		5F9EE6112D589B2700A32B14 /* objc_arg_description.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE5AA2D5729E600A32B14 /* objc_arg_description.c */; };
 		5F9EE6122D589B2700A32B14 /* arg_description.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE5B02D5734F300A32B14 /* arg_description.c */; };
-		5F9EE6132D589B2700A32B14 /* realized_class_tracking.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FB1F2B72D4C8389007F6D70 /* realized_class_tracking.c */; };
 		5F9EE6142D589B4000A32B14 /* format.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FCA2A472CFD910D00D7BB08 /* format.c */; };
 		5F9EE6152D589B4000A32B14 /* msgSend_hook.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FCA29AE2CFC496900D7BB08 /* msgSend_hook.c */; };
 		5F9EE6162D589B4000A32B14 /* rebind.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FCA29B12CFC496900D7BB08 /* rebind.c */; };
@@ -48,14 +47,12 @@
 		5F9EE61D2D589BC000A32B14 /* highlight.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FF45BE62D333EC50073F42E /* highlight.c */; };
 		5F9EE61E2D589BC000A32B14 /* color_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FCA2A452CFD910D00D7BB08 /* color_utils.c */; };
 		5F9EE6202D594B4800A32B14 /* SelectorDenyListTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE61F2D594B0000A32B14 /* SelectorDenyListTests.m */; };
-		5F9EE6242D594CEF00A32B14 /* RealizedClassTrackingTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE6232D594CEF00A32B14 /* RealizedClassTrackingTests.m */; };
 		5F9EE6262D59500B00A32B14 /* ObjcDescriptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE6252D59500B00A32B14 /* ObjcDescriptionTests.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 		5F9EE62B2D597BAC00A32B14 /* CoreSymbolicationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE62A2D597BAC00A32B14 /* CoreSymbolicationTests.m */; };
 		5F9EE62C2D597C9D00A32B14 /* symbolication.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F8BED422D3A880300D52DC6 /* symbolication.c */; };
 		5F9EE6312D5998C600A32B14 /* BlockDescriptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE6302D5998C400A32B14 /* BlockDescriptionTests.m */; };
 		5FB1F2B52D4C8384007F6D70 /* realized_class_tracking.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FB1F2B42D4C8384007F6D70 /* realized_class_tracking.h */; };
 		5FB1F2B62D4C8384007F6D70 /* realized_class_tracking.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FB1F2B42D4C8384007F6D70 /* realized_class_tracking.h */; };
-		5FB1F2B92D4C838D007F6D70 /* realized_class_tracking.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FB1F2B72D4C8389007F6D70 /* realized_class_tracking.c */; };
 		5FBAC04F2D4FB81600AF19D8 /* sim_launching.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FBAC04B2D4FB81600AF19D8 /* sim_launching.m */; };
 		5FBAC0502D4FB81600AF19D8 /* tmpfs_overlay.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FBAC04D2D4FB81600AF19D8 /* tmpfs_overlay.m */; };
 		5FBAC0512D4FB81600AF19D8 /* sim_launching.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FBAC04A2D4FB81600AF19D8 /* sim_launching.h */; };
@@ -203,13 +200,11 @@
 		5F9EE5C32D575FB400A32B14 /* testapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = testapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F9EE60E2D589A6200A32B14 /* ArgDescriptionTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ArgDescriptionTests.m; sourceTree = "<group>"; };
 		5F9EE61F2D594B0000A32B14 /* SelectorDenyListTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SelectorDenyListTests.m; sourceTree = "<group>"; };
-		5F9EE6232D594CEF00A32B14 /* RealizedClassTrackingTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RealizedClassTrackingTests.m; sourceTree = "<group>"; };
 		5F9EE6252D59500B00A32B14 /* ObjcDescriptionTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ObjcDescriptionTests.m; sourceTree = "<group>"; };
 		5F9EE62A2D597BAC00A32B14 /* CoreSymbolicationTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CoreSymbolicationTests.m; sourceTree = "<group>"; };
 		5F9EE6302D5998C400A32B14 /* BlockDescriptionTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BlockDescriptionTests.m; sourceTree = "<group>"; };
 		5FAF157A2C7E4CA100E10412 /* libobjsee.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = libobjsee.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5FB1F2B42D4C8384007F6D70 /* realized_class_tracking.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = realized_class_tracking.h; sourceTree = "<group>"; };
-		5FB1F2B72D4C8389007F6D70 /* realized_class_tracking.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = realized_class_tracking.c; sourceTree = "<group>"; };
 		5FBAC04A2D4FB81600AF19D8 /* sim_launching.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sim_launching.h; sourceTree = "<group>"; };
 		5FBAC04B2D4FB81600AF19D8 /* sim_launching.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = sim_launching.m; sourceTree = "<group>"; };
 		5FBAC04C2D4FB81600AF19D8 /* tmpfs_overlay.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tmpfs_overlay.h; sourceTree = "<group>"; };
@@ -405,7 +400,6 @@
 				5F9EE5AD2D5734E300A32B14 /* arg_description.h */,
 				5F9EE5B02D5734F300A32B14 /* arg_description.c */,
 				5FB1F2B42D4C8384007F6D70 /* realized_class_tracking.h */,
-				5FB1F2B72D4C8389007F6D70 /* realized_class_tracking.c */,
 			);
 			path = arguments;
 			sourceTree = "<group>";
@@ -547,7 +541,6 @@
 				5FF45C092D333F980073F42E /* StructDecoderTests.m */,
 				5F9EE60E2D589A6200A32B14 /* ArgDescriptionTests.m */,
 				5F9EE61F2D594B0000A32B14 /* SelectorDenyListTests.m */,
-				5F9EE6232D594CEF00A32B14 /* RealizedClassTrackingTests.m */,
 				5F9EE6252D59500B00A32B14 /* ObjcDescriptionTests.m */,
 				5F9EE62A2D597BAC00A32B14 /* CoreSymbolicationTests.m */,
 				5F7084972D5E2EFD00329B4E /* TypeEncodingTests.m */,
@@ -828,7 +821,6 @@
 				5FCA29C82CFC497300D7BB08 /* transport.c in Sources */,
 				5FF58D852D05B84A007F5000 /* msgSend_hook.c in Sources */,
 				5FF45BDD2D333EBF0073F42E /* encoding_size.c in Sources */,
-				5FB1F2B92D4C838D007F6D70 /* realized_class_tracking.c in Sources */,
 				5FF45BDE2D333EBF0073F42E /* blocks.c in Sources */,
 				5FF45BDF2D333EBF0073F42E /* encoding_description.c in Sources */,
 				5FCA2A412CFD910700D7BB08 /* config_decode.c in Sources */,
@@ -878,7 +870,6 @@
 				5F9EE6152D589B4000A32B14 /* msgSend_hook.c in Sources */,
 				5F9EE6162D589B4000A32B14 /* rebind.c in Sources */,
 				5F9EE6172D589B4000A32B14 /* selector_deny_list.c in Sources */,
-				5F9EE6242D594CEF00A32B14 /* RealizedClassTrackingTests.m in Sources */,
 				5F9EE6312D5998C600A32B14 /* BlockDescriptionTests.m in Sources */,
 				5F9EE6182D589B4000A32B14 /* tracer.c in Sources */,
 				5F9EE6192D589B4000A32B14 /* tracer_core.c in Sources */,
@@ -888,7 +879,6 @@
 				5F9EE6102D589B2700A32B14 /* arg_capture.c in Sources */,
 				5F9EE6112D589B2700A32B14 /* objc_arg_description.c in Sources */,
 				5F9EE6122D589B2700A32B14 /* arg_description.c in Sources */,
-				5F9EE6132D589B2700A32B14 /* realized_class_tracking.c in Sources */,
 				5F9EE60F2D589A6C00A32B14 /* ArgDescriptionTests.m in Sources */,
 				5FF45BE02D333EBF0073F42E /* blocks.c in Sources */,
 				5F9EE6202D594B4800A32B14 /* SelectorDenyListTests.m in Sources */,

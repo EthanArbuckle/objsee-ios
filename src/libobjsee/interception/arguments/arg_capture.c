@@ -135,24 +135,18 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
                 continue;
             }
 
-            WHILE_IGNORING_SIGNALS({
-                const char *class_name = object_getClassName(objc_object);
-                if (class_name == NULL) {
-                    return;
-                }
-                
-                vm_address_t name_copy;
-                size_t name_len = strlen(class_name) + 1;
-                if (vm_allocate(mach_task_self(), &name_copy, name_len, VM_FLAGS_ANYWHERE) == KERN_SUCCESS) {
-                    memcpy((void *)name_copy, class_name, name_len);
-                    event_arg->objc_class_name = (const char *)name_copy;
-                }
-                event_arg->objc_class = object_class;
-            });
-            
-            if (event_arg->objc_class_name == NULL) {
-                continue;
+            const char *class_name = object_getClassName(objc_object);
+            if (class_name == NULL) {
+                return;
             }
+            
+            vm_address_t name_copy;
+            size_t name_len = strlen(class_name) + 1;
+            if (vm_allocate(mach_task_self(), &name_copy, name_len, VM_FLAGS_ANYWHERE) == KERN_SUCCESS) {
+                memcpy((void *)name_copy, class_name, name_len);
+                event_arg->objc_class_name = (const char *)name_copy;
+            }
+            event_arg->objc_class = object_class;
             
             char description_buf[1024];
             if (description_for_argument(event_arg, g_tracer_ctx->config.format.args, description_buf, sizeof(description_buf)) != KERN_SUCCESS) {
