@@ -158,8 +158,6 @@ Compile and link against `libobjsee`. On success, you’ll see trace events appe
 
 This documentation covers the library API usage for embedding into your own tools or tweaks.
 
-> **Supported architectures**: only **arm64**.
-
 ### Data Structures
 
 #### `tracer_transport_type_t`
