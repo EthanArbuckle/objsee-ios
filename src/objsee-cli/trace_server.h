@@ -13,9 +13,8 @@
  *
  * @param config The configuration to use for the server
  * @param traced_pid The pid of the process to trace
- * @param exception_handler_needs_attachment If true, attach the exception handler after connecting to the process.
  * @return 0 on success, 1 on error
  */
-int run_trace_server(tracer_config_t *config, pid_t traced_pid, bool exception_handler_needs_attachment);
+int run_trace_server(tracer_config_t *config, pid_t traced_pid);
 
 #endif // TRACE_SERVER_H

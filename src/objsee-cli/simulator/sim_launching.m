@@ -33,7 +33,7 @@ static NSString *run_command(NSArray *command, NSDictionary *environment, BOOL w
     return nil;
 }
 
-NSString *first_booted_simulator_uuid(void) {
+const char *first_booted_simulator_uuid(void) {
     // Find the first booted simulator and return its UUID
     NSArray *command = @[@"xcrun", @"simctl", @"list", @"--json", @"-e", @"devices"];
     NSString *output = run_command(command, nil, YES);
@@ -41,28 +41,28 @@ NSString *first_booted_simulator_uuid(void) {
     for (NSArray *simRuntime in json[@"devices"]) {
         for (NSDictionary *simDevice in json[@"devices"][simRuntime]) {
             if ([simDevice[@"state"] isEqualToString:@"Booted"]) {
-                return simDevice[@"udid"];
+                return [simDevice[@"udid"] UTF8String];
             }
         }
     }
     
-    return nil;
+    return NULL;
 }
 
-kern_return_t launch_simulator_app_with_encoded_tracer_config(NSString *simulatorUUID, NSString *bundleID, NSString *configString) {
-    NSArray *command = @[@"xcrun", @"simctl", @"launch", simulatorUUID, bundleID];
+kern_return_t simulator_launch_traced_app(const char *sim_uuid, const char *bundle_id, const char *encoded_config) {
+    NSArray *command = @[@"xcrun", @"simctl", @"launch", [NSString stringWithUTF8String:sim_uuid], [NSString stringWithUTF8String:bundle_id]];
     NSMutableDictionary *environment = [NSMutableDictionary dictionaryWithDictionary:[[NSProcessInfo processInfo] environment]];
     
     // Inject the tracer library with DYLD_INSERT_LIBRARIES
     environment[@"SIMCTL_CHILD_DYLD_INSERT_LIBRARIES"] = [NSString stringWithUTF8String:OBJSEE_LIBRARY_PATH];
     // Provide the tracing config as an env var
-    environment[@"SIMCTL_CHILD_OBJSEE_CONFIG"] = configString;
+    environment[@"SIMCTL_CHILD_OBJSEE_CONFIG"] = [NSString stringWithUTF8String:encoded_config];
     
     // Launch the app in the simulator
     run_command(command, environment, NO);
     
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    on_process_launch(bundleID, ^(pid_t pid) {
+    on_process_launch(bundle_id, ^(pid_t pid) {
         if (pid > 0) {
             printf("App launched with PID: %d\n", pid);
         }

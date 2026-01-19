@@ -499,7 +499,7 @@ static void *exception_handler(void *unused) {
     return NULL;
 }
 
-bool setup_exception_handler_on_process(pid_t traced_app_pid) {
+kern_return_t setup_exception_handler_on_process(pid_t traced_app_pid) {
     g_state.traced_app_pid = traced_app_pid;
     g_state.symbolicator = CSNULL;
     g_state.exception_port = MACH_PORT_NULL;
@@ -507,30 +507,24 @@ bool setup_exception_handler_on_process(pid_t traced_app_pid) {
     g_state.exceptions_caught = 0;
 
     if (!symbolication_initialized()) {
-        printf("Failed to initialize CoreSymbolication\n");
-        return false;
+        return KERN_FAILURE;
     }
     
     g_state.traced_app_pid = traced_app_pid;
-    if (task_for_pid(mach_task_self(), traced_app_pid, &g_state.traced_app_task) != KERN_SUCCESS) {
-        printf("Failed to get task for pid %d\n", traced_app_pid);
-        return false;
+    if (task_for_pid(mach_task_self(), traced_app_pid, &g_state.traced_app_task) != KERN_SUCCESS || g_state.traced_app_task == MACH_PORT_NULL) {
+        printf("%s: Failed to get task for pid %d\n", __func__, traced_app_pid);
+        return KERN_FAILURE;
     }
-    
-    if (g_state.traced_app_task == MACH_PORT_NULL) {
-        printf("Received null task for pid %d\n", traced_app_pid);
-        return false;
-    }
-    
+
     g_state.symbolicator = create_symbolicator_with_task(g_state.traced_app_task);
     if (cs_isnull(g_state.symbolicator)) {
-        printf("Failed to create symbolicator for task\n");
-        return false;
+        printf("%s: Failed to create symbolicator for task 0x%x\n", __func__, g_state.traced_app_task);
+        return KERN_FAILURE;
     }
     
     if (cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &g_state.cs_handle) != CS_ERR_OK) {
-        printf("Failed to initialize Capstone\n");
-        return false;
+        printf("%s: Failed to initialize Capstone disassembler\n", __func__);
+        return KERN_FAILURE;
     }
     cs_option(g_state.cs_handle, CS_OPT_DETAIL, CS_OPT_ON);
 
@@ -542,7 +536,7 @@ bool setup_exception_handler_on_process(pid_t traced_app_pid) {
     pthread_create(&exception_thread, NULL, exception_handler, NULL);
     pthread_detach(exception_thread);
     
-    return true;
+    return KERN_SUCCESS;
 }
 
 #endif // __arm64__

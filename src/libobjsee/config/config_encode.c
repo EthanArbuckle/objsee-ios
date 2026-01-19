@@ -47,20 +47,20 @@ static char *base64_encode(const unsigned char *input, size_t length) {
     return encoded;
 }
 
-tracer_result_t encode_tracer_config(tracer_config_t *config, char **out_str) {
-    if (config == NULL || out_str == NULL) {
-        return TRACER_ERROR_INVALID_ARGUMENT;
+const char *encode_tracer_config(tracer_config_t *config) {
+    if (config == NULL) {
+        return NULL;
     }
 
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     if (doc == NULL) {
-        return TRACER_ERROR_MEMORY;
+        return NULL;
     }
 
     yyjson_mut_val *root = yyjson_mut_obj(doc);
     if (root == NULL) {
         yyjson_mut_doc_free(doc);
-        return TRACER_ERROR_MEMORY;
+        return NULL;
     }
     yyjson_mut_doc_set_root(doc, root);
 
@@ -78,7 +78,7 @@ tracer_result_t encode_tracer_config(tracer_config_t *config, char **out_str) {
     yyjson_mut_val *format = yyjson_mut_obj(doc);
     if (format == NULL) {
         yyjson_mut_doc_free(doc);
-        return TRACER_ERROR_MEMORY;
+        return NULL;
     }
     
     yyjson_mut_obj_add_bool(doc, format, "include_formatted_trace", config->format.include_formatted_trace);
@@ -100,7 +100,7 @@ tracer_result_t encode_tracer_config(tracer_config_t *config, char **out_str) {
         yyjson_mut_val *filters_array = yyjson_mut_arr(doc);
         if (filters_array == NULL) {
             yyjson_mut_doc_free(doc);
-            return TRACER_ERROR_MEMORY;
+            return NULL;
         }
         
         for (size_t i = 0; i < config->filter_count; i++) {
@@ -133,12 +133,13 @@ tracer_result_t encode_tracer_config(tracer_config_t *config, char **out_str) {
     char *json_str = yyjson_mut_write(doc, 0, &json_len);
     if (json_str == NULL) {
         yyjson_mut_doc_free(doc);
-        return TRACER_ERROR_MEMORY;
+        return NULL;
     }
-
-    *out_str = base64_encode((const unsigned char *)json_str, json_len);
+    
+    const char *encoded_config = base64_encode((const unsigned char *)json_str, json_len);
 
     free(json_str);
     yyjson_mut_doc_free(doc);
-    return *out_str != NULL ? TRACER_SUCCESS : TRACER_ERROR_INVALID_ARGUMENT;
+    
+    return encoded_config;
 }

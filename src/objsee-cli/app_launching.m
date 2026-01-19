@@ -16,7 +16,7 @@
 #include "config_encode.h"
 
 
-kern_return_t launch_app_with_encoded_tracer_config(NSString *bundleID, NSString *configString) {
+kern_return_t launch_traced_app(const char *bundle_id, const char *encoded_config) {
     void *_SBServices_handle = dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", RTLD_NOW);
     void *_SBSLaunchApplicationForDebugging = dlsym(_SBServices_handle, "SBSLaunchApplicationForDebugging");
     if (_SBSLaunchApplicationForDebugging == NULL) {
@@ -24,46 +24,38 @@ kern_return_t launch_app_with_encoded_tracer_config(NSString *bundleID, NSString
         return KERN_FAILURE;
     }
 
-    /*
-     SBSApplicationLaunchError SBSLaunchApplicationForDebugging(CFStringRef displayIdentifier,
-                                                                    CFURLRef openURL,
-                                                                    CFArrayRef arguments,
-                                                                    CFDictionaryRef environment,
-                                                                    CFStringRef stdOutPath,
-                                                                    CFStringRef stdErrorPath,
-                                                                    SBSApplicationLaunchFlags flags);
-     */
     NSDictionary *environment = @{
         @"DYLD_INSERT_LIBRARIES": [NSString stringWithUTF8String:OBJSEE_LIBRARY_PATH],
-        @"OBJSEE_CONFIG": configString
+        @"OBJSEE_CONFIG": [NSString stringWithUTF8String:encoded_config]
     };
     
+    NSString *bundleID = [NSString stringWithUTF8String:bundle_id];
     int launchResult = ((int (*)(NSString *, CFURLRef, NSArray *, NSDictionary *, NSString *, NSString *, uint32_t))_SBSLaunchApplicationForDebugging)(bundleID, NULL, NULL, environment, NULL, NULL, 0);
     return (launchResult == 0) ? KERN_SUCCESS : KERN_FAILURE;
 }
 
-kern_return_t terminate_app_if_running(NSString *bundleID) {
+kern_return_t terminate_app_if_running(const char *bundle_id) {
     void *_SBServices_handle = dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", RTLD_NOW);
     void *_SBSProcessIDForDisplayIdentifier = dlsym(_SBServices_handle, "SBSProcessIDForDisplayIdentifier");
-    if (_SBSProcessIDForDisplayIdentifier) {
-        
-        // Check if the app is running, skip assertion creation if not
-        pid_t pid = -1;
-        Boolean found = ((Boolean (*)(NSString *, pid_t *))_SBSProcessIDForDisplayIdentifier)(bundleID, &pid);
-        if (!found || pid < 1) {
-            // App not running
-            return KERN_SUCCESS;
-        }
+    void *_SBSApplicationTerminationAssertionCreateWithError = dlsym(_SBServices_handle, "SBSApplicationTerminationAssertionCreateWithError");
+    void *_SBSApplicationTerminationAssertionInvalidate = dlsym(_SBServices_handle, "SBSApplicationTerminationAssertionInvalidate");
+    
+    if (_SBSProcessIDForDisplayIdentifier == NULL || _SBSApplicationTerminationAssertionCreateWithError == NULL || _SBSApplicationTerminationAssertionInvalidate == NULL) {
+        printf("Failed to resolve SpringBoardServices functions. Cannot terminate app\n");
+        return KERN_FAILURE;
+    }
+    
+    NSString *bundleID = [NSString stringWithUTF8String:bundle_id];
+
+    // Check if the app is running, skip assertion creation if not
+    pid_t pid = -1;
+    Boolean found = ((Boolean (*)(NSString *, pid_t *))_SBSProcessIDForDisplayIdentifier)(bundleID, &pid);
+    if (!found || pid < 1) {
+        // App not running
+        return KERN_SUCCESS;
     }
     
     // Create termination assertion
-    void *_SBSApplicationTerminationAssertionCreateWithError = dlsym(_SBServices_handle, "SBSApplicationTerminationAssertionCreateWithError");
-    void *_SBSApplicationTerminationAssertionInvalidate = dlsym(_SBServices_handle, "SBSApplicationTerminationAssertionInvalidate");
-    if (_SBSApplicationTerminationAssertionCreateWithError == NULL || _SBSApplicationTerminationAssertionInvalidate == NULL) {
-        NSLog(@"Failed to resolve SBSApplicationTerminationAssertion functions. Cannot terminate app");
-        return KERN_FAILURE;
-    }
-
     uint8_t error_code = 0;
     void *assertion = ((void *(*)(void *, NSString *, uint8_t, uint8_t *))_SBSApplicationTerminationAssertionCreateWithError)(NULL, bundleID, UINT8_MAX, &error_code);
     if (assertion != NULL) {
@@ -79,7 +71,7 @@ kern_return_t terminate_app_if_running(NSString *bundleID) {
     return KERN_FAILURE;
 }
 
-void on_process_launch(NSString *bundleID, void (^completion)(pid_t pid)) {
+void on_process_launch(const char *bundle_id, void (^completion)(pid_t pid)) {
     static dispatch_once_t onceToken;
     static __strong void (^handler)(NSDictionary *);
     static __strong id monitor;
@@ -99,7 +91,7 @@ void on_process_launch(NSString *bundleID, void (^completion)(pid_t pid)) {
             }
             
             NSString *launchedAppBundleId = [info objectForKey:@"SBApplicationStateDisplayIDKey"];
-            if ([launchedAppBundleId isEqualToString:bundleID] == NO) {
+            if ([launchedAppBundleId isEqualToString:[NSString stringWithUTF8String:bundle_id]] == NO) {
                 return;
             }
 /*
@@ -157,21 +149,32 @@ int find_free_socket_port(void) {
     return free_port;
 }
 
-kern_return_t spawn_process(cli_options_t *options, tracer_config_t config) {
-    if (options == NULL || options->file_path == NULL) {
+kern_return_t spawn_traced_process(cli_options_t *options, const char *encoded_config, pid_t *out_pid) {
+    if (options == NULL || options->target_process.file_path == NULL) {
         return KERN_INVALID_ARGUMENT;
     }
 
-    char *config_string = NULL;
-    if (encode_tracer_config(&config, &config_string) != TRACER_SUCCESS) {
-        printf("Failed to encode libobjsee config\n");
-        return KERN_FAILURE;
+    const char *file_path = options->target_process.file_path;
+    pid_t pid = -1;
+
+    /* Locate file_path index in original argv */
+    int file_idx = -1;
+    for (int i = 0; i < options->argc; i++) {
+        if (options->argv[i] == file_path ||
+            (options->argv[i] && strcmp(options->argv[i], file_path) == 0)) {
+            file_idx = i;
+            break;
+        }
+    }
+    if (file_idx < 0) {
+        return KERN_INVALID_ARGUMENT;
     }
 
-    size_t config_len = strlen(config_string);
+    size_t config_len = strlen(encoded_config);
     size_t dylib_len = strlen(OBJSEE_LIBRARY_PATH);
-    char *dyld_insert_env = malloc(dylib_len + sizeof("DYLD_INSERT_LIBRARIES=") + 1);
-    char *objsee_config_env = malloc(config_len + sizeof("OBJSEE_CONFIG=") + 1);
+
+    char *dyld_insert_env = malloc(dylib_len + sizeof("DYLD_INSERT_LIBRARIES="));
+    char *objsee_config_env = malloc(config_len + sizeof("OBJSEE_CONFIG="));
     if (dyld_insert_env == NULL || objsee_config_env == NULL) {
         free(dyld_insert_env);
         free(objsee_config_env);
@@ -179,27 +182,31 @@ kern_return_t spawn_process(cli_options_t *options, tracer_config_t config) {
     }
     
     sprintf(dyld_insert_env, "DYLD_INSERT_LIBRARIES=%s", OBJSEE_LIBRARY_PATH);
-    sprintf(objsee_config_env, "OBJSEE_CONFIG=%s", config_string);
-    char **envp = (char *[]){dyld_insert_env, objsee_config_env, NULL};
-    char **child_argv = malloc(sizeof(char *) * (options->argc));
+    sprintf(objsee_config_env, "OBJSEE_CONFIG=%s", encoded_config);
+
+    char *envp[] = { dyld_insert_env, objsee_config_env, NULL };
+
+    /* Child argv = file_path + args strictly after file_path */
+    int child_argc = options->argc - (file_idx + 1);
+    char **child_argv = calloc((size_t)child_argc + 2, sizeof(char *));
     if (child_argv == NULL) {
         free(dyld_insert_env);
         free(objsee_config_env);
         return KERN_RESOURCE_SHORTAGE;
     }
-    
-    child_argv[0] = (char *)options->file_path;
-    size_t arg_idx = 1;
-    for (int i = 2; i < options->argc && arg_idx < options->argc - 1; i++) {
-        child_argv[arg_idx++] = options->argv[i];
+
+    child_argv[0] = (char *)file_path;
+    for (int i = 0; i < child_argc; i++) {
+        child_argv[i + 1] = options->argv[file_idx + 1 + i];
     }
-    child_argv[arg_idx] = NULL;
-    
+    child_argv[child_argc + 1] = NULL;
+
     posix_spawnattr_t attr;
     posix_spawnattr_init(&attr);
     posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED);
-    int ret = posix_spawn(&options->pid, options->file_path, NULL, &attr, child_argv, envp);
-    
+
+    int ret = posix_spawn(&pid, file_path, NULL, &attr, child_argv, envp);
+
     posix_spawnattr_destroy(&attr);
     free(dyld_insert_env);
     free(objsee_config_env);
@@ -208,11 +215,37 @@ kern_return_t spawn_process(cli_options_t *options, tracer_config_t config) {
     if (ret != 0) {
         return KERN_FAILURE;
     }
-    
-    kill(options->pid, SIGCONT);
-    
+
+    kill(pid, SIGCONT);
+
     int status;
-    waitpid(options->pid, &status, 0);
+    waitpid(pid, &status, 0);
+
+    if (out_pid != NULL) {
+        *out_pid = pid;
+    }
 
     return KERN_SUCCESS;
+}
+
+pid_t pid_from_hint(const char *hint) {
+    if (hint == NULL) {
+        return -1;
+    }
+    
+    static dispatch_once_t onceToken;
+    static void *pidFromHint = NULL;
+    dispatch_once(&onceToken, ^{
+        void *symbolication_handle = dlopen("/System/Library/PrivateFrameworks/Symbolication.framework/Symbolication", 9);
+        if (symbolication_handle) {
+            pidFromHint = dlsym(symbolication_handle, "pidFromHint");
+        }
+    });
+    
+    if (pidFromHint == NULL) {
+        printf("Failed to resolve pidFromHint()\n");
+        return -1;
+    }
+    
+    return ((pid_t (*)(NSString *))pidFromHint)([NSString stringWithUTF8String:hint]);
 }

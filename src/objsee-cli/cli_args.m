@@ -6,31 +6,9 @@
 //
 
 #include <Foundation/Foundation.h>
-#include <dlfcn.h>
 #include "app_launching.h"
 #include "cli_args.h"
 
-static pid_t pid_from_hint(const char *hint) {
-    if (hint == NULL) {
-        return -1;
-    }
-    
-    static dispatch_once_t onceToken;
-    static void *pidFromHint = NULL;
-    dispatch_once(&onceToken, ^{
-        void *symbolication_handle = dlopen("/System/Library/PrivateFrameworks/Symbolication.framework/Symbolication", 9);
-        if (symbolication_handle) {
-            pidFromHint = dlsym(symbolication_handle, "pidFromHint");
-        }
-    });
-    
-    if (pidFromHint == NULL) {
-        printf("Failed to resolve pidFromHint()\n");
-        return -1;
-    }
-    
-    return ((pid_t (*)(NSString *))pidFromHint)([NSString stringWithUTF8String:hint]);
-}
 
 int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_config_t *config) {
     memset(options, 0, sizeof(cli_options_t));
@@ -65,7 +43,26 @@ int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_c
         }
         
         if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
-            options->pid = pid_from_hint(argv[i + 1]);
+            // Arg may be either a PID or the name of a running process.
+            // If it's a number, use that as the PID directly. Otherwise, store the value so it can be resolved to a PID (later, after cli args are fully parsed)
+            const char *process_arg = argv[i + 1];
+            if (isdigit(process_arg[0])) {
+                char *endptr;
+                long pid_value = strtol(process_arg, &endptr, 10);
+                if (*endptr != '\0' || pid_value <= 0) {
+                    printf("Error: Invalid PID value '%s'\n", process_arg);
+                    return -1;
+                }
+                options->target_process.pid = (pid_t)pid_value;
+            }
+            else if (process_arg[0] != '\0') {
+                options->target_process.process_hint = process_arg;
+            }
+            else {
+                printf("Error: Invalid process identifier '%s'\n", process_arg);
+                return -1;
+            }
+            
             i++;
             continue;
         }
@@ -183,17 +180,21 @@ int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_c
             continue;
         }
         
-        if ((options->file_path == NULL || options->bundle_id == NULL) && argv[i][0] != '-') {
-            if (options->file_path == NULL && access(argv[i], F_OK) != -1) {
-                options->file_path = argv[i];
+        // If no target process specified yet, treat arg as a potential target
+        target_process_options_t *target = &options->target_process;
+        if ((target->file_path == NULL || target->bundle_id == NULL) && argv[i][0] != '-') {
+            // If the arg is a valid file path, treat it as such
+            if (access(argv[i], F_OK) != -1) {
+                target->file_path = argv[i];
                 continue;
             }
             
-            options->bundle_id = argv[i];
+            // Otherwise, treat it as a bundle id
+            target->bundle_id = argv[i];
         }
         else {
             // Allow arbitrary args if we're launching an executable
-            if (options->file_path != NULL) {
+            if (target->file_path != NULL) {
                 continue;
             }
             

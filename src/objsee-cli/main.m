@@ -91,11 +91,13 @@ static kern_return_t locate_objsee_library(void) {
         strcpy(path, jbroot_path);
         strcat(path, "/Library/Frameworks/libobjsee.framework/libobjsee");
         
-        if (access(path, F_OK) == 0) {
-            OBJSEE_LIBRARY_PATH = path;
-            printf("Found libobjsee at path: %s\n", OBJSEE_LIBRARY_PATH);
-            return KERN_SUCCESS;
+        if (access(path, F_OK) != 0) {
+            free(path);
+            return KERN_FAILURE;
         }
+        
+        OBJSEE_LIBRARY_PATH = path;
+        return KERN_SUCCESS;
     }
     
     return KERN_FAILURE;
@@ -112,7 +114,7 @@ int main(int argc, char *argv[]) {
         apply_defaults_to_config(&config);
         
         if (locate_objsee_library() != KERN_SUCCESS) {
-            printf("Failed to find libobjsee\n");
+            printf("Failed to find libobjsee library\n");
             return 1;
         }
         
@@ -147,135 +149,173 @@ int main(int argc, char *argv[]) {
             config.format.include_indent_separators = false;
             config.format.include_newline_in_formatted_trace = true;
         }
-        else if (options.file_path) {
+        else if (options.target_process.file_path) {
             config.transport = TRACER_TRANSPORT_STDOUT;
             config.transport_config.host = NULL;
             config.transport_config.port = 0;
             config.format.output_as_json = false;
         }
         
-        NSString *bundleID = nil;
-        if (options.file_path == NULL && (options.bundle_id == NULL || (bundleID = [NSString stringWithUTF8String:options.bundle_id]) == nil) && options.pid == 0) {
-            printf("Error: No bundle ID or PID specified\n");
-            return 1;
-        }
-        
-        if (options.file_path) {
-            return spawn_process(&options, config);
-        }
-        
-        // Prepare the encoded config. This will be used for both process launches and attachments.
-        // When launching apps, it's provided via an env var. When attaching, it's passed as an arg to the entrypoint function objsee_main()
-        char *b64_encoded_config = NULL;
-        if (encode_tracer_config(&config, &b64_encoded_config) != TRACER_SUCCESS) {
-            printf("Failed to encode libobjsee config\n");
-            return KERN_FAILURE;
-        }
-        NSString *configString = [NSString stringWithUTF8String:b64_encoded_config];
-        free(b64_encoded_config);
-        
-        bool exception_handler_needs_attachment = true;
-        
-        if (options.file_path == NULL && options.pid != 0) {
-            if (options.run_in_simulator) {
-                printf("Cannot attach to running process in simulator\n");
+        // Resolve PID from hint if provided
+        target_process_options_t *target = &options.target_process;
+        if (target->process_hint) {
+            pid_t hinted_pid = pid_from_hint(target->process_hint);
+            if (hinted_pid <= 0) {
+                printf("Failed to find a process matching hint: %s\n", target->process_hint);
                 return 1;
             }
+            target->pid = hinted_pid;
+        }
+        
+        bool valid_target = (target->file_path != NULL || target->bundle_id != NULL || target->pid > 0);
+        if (!valid_target) {
+            printf("Error: No target process specified\n");
+            return 1;
+        }
+
+        // Prepare the encoded config string. All launch paths will use this
+        const char *encoded_config = encode_tracer_config(&config);
+        if (encoded_config == NULL) {
+            printf("Failed to encode libobjsee config\n");
+            return 1;
+        }
+
+        if (target->file_path) {
+            // A filepath was provided -- spawn the process directly. Dyld env vars are used to inject libobjsee
+            pid_t spawned_pid = -1;
+            kern_return_t spawn_status = spawn_traced_process(&options, encoded_config, &spawned_pid);
+            if (spawn_status != KERN_SUCCESS || spawned_pid <= 0) {
+                printf("Failed to spawn process: %s\n", target->file_path);
+                free((void *)encoded_config);
+                return 1;
+            }
+            
+            target->pid = spawned_pid;
+        }
+        else if (target->pid > 0) {
+            // A PID was provided (or resolved from a hint). Inject libobjsee into the running process.
+            // Not supported for simulator processes
+            if (options.run_in_simulator) {
+                printf("Cannot attach to running process in simulator\n");
+                free((void *)encoded_config);
+                return 1;
+            }
+            
             // If attaching to an existing pid:
             // 1. Inject the library dylib into the running process
             // 2. Lookup the address of the entry point function objsee_main()
             // 3. Call the entry point function with the encoded config string as an argument
-            if (inject_dylib_into_pid(OBJSEE_LIBRARY_PATH, options.pid) != 0) {
-                printf("Failed to inject libobjsee into process\n");
-                return 1;
-            }
             
-            // Find address of entry point
-            uint64_t objsee_main_addr = get_function_address_in_pid("objsee_main", "libobjsee", options.pid);
-            if (objsee_main_addr <= 0) {
-                printf("Failed to find objsee_main in process\n");
-                return 1;
-            }
+            // This is not immediately checked for success because, more important than the injection itself, is whether
+            // or not libobjsee exists in the target process. If libobjsee is loaded in the target process despite
+            // this injection step failing, there's no problem and tracing should proceed
+            kern_return_t inject_result = inject_dylib_into_pid(OBJSEE_LIBRARY_PATH, target->pid);
             
-            // Invoke entry point with the config
-            if (call_remote_function_with_string(objsee_main_addr, (char *)[configString UTF8String], 0, options.pid) != KERN_SUCCESS) {
-                printf("Failed to start objsee_main in process\n");
-                return 1;
-            }
-            
-            if (setup_exception_handler_on_process(options.pid)) {
-                exception_handler_needs_attachment = false;
-            }
-            
-            printf("Attached to process with PID: %d\n", options.pid);
-        }
-        else if (bundleID && options.run_in_simulator) {
-            
-            NSString *bootedSimulatorUUID = first_booted_simulator_uuid();
-            if (!bootedSimulatorUUID) {
-                printf("No booted simulator found\n");
-                return 1;
-            }
-            
-#if !TARGET_OS_IPHONE
-            make_running_simulator_runtime_readwrite();
-#endif
-            if (launch_simulator_app_with_encoded_tracer_config(bootedSimulatorUUID, bundleID, configString) != KERN_SUCCESS) {
-                printf("Failed to launch app in simulator\n");
-                return 1;
-            }
-        }
-        else if (bundleID) {
-            // The app will be launched. If it's already running, terminate it
-            terminate_app_if_running(bundleID);
-            
-            // Setup an launch-finished listener (the process should be fully spawned before continuing)
-            dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-            on_process_launch(bundleID, ^(pid_t pid) {
-                if (pid > 0) {
-                    options.pid = pid;
-                    printf("App launched with PID: %d\n", options.pid);
-                    
+            // Find the address of libobjsee's objsee_main() function in the running process
+            uint64_t objsee_main_addr = remote_dlsym(target->pid, "libobjsee", "objsee_main");
+            if (objsee_main_addr == 0 || objsee_main_addr == (uint64_t)-1) {
+                // Symbol wasn't found
+                if (inject_result != KERN_SUCCESS) {
+                    printf("Failed to inject %s into process with PID %d\n", OBJSEE_LIBRARY_PATH, target->pid);
                 }
-                dispatch_semaphore_signal(sem);
-            });
-            
-            // Begin app launch -- config provided via env var
-            if (launch_app_with_encoded_tracer_config(bundleID, configString) != KERN_SUCCESS) {
-                printf("Failed to launch app\n");
+                else {
+                    printf("Injected %s into process with PID %d, but failed to find objsee_main symbol\n", OBJSEE_LIBRARY_PATH, target->pid);
+                }
+                
+                free((void *)encoded_config);
                 return 1;
             }
-            
-            // Wait for the launch-listener to trigger or timeout
-            dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
-            if (options.pid <= 0) {
-                printf("The app was not launched\n");
+
+            // Invoke entry point with the encoded config
+            kern_return_t call_result = call_remote_function_with_string(objsee_main_addr, encoded_config, 0, target->pid);
+            if (call_result != KERN_SUCCESS) {
+                printf("Failed to invoke objsee_main() in process with PID %d\n", target->pid);
+                free((void *)encoded_config);
                 return 1;
-            }
-            
-            if (setup_exception_handler_on_process(options.pid)) {
-                exception_handler_needs_attachment = false;
             }
         }
+        else if (target->bundle_id) {
+            // A bundle ID was provided -- launch the app (in simulator or on device)
+            if (options.run_in_simulator) {
+                const char *sim_uuid = first_booted_simulator_uuid();
+                if (sim_uuid == NULL) {
+                    printf("No booted simulator found\n");
+                    free((void *)encoded_config);
+                    return 1;
+                }
+                
+#if !TARGET_OS_IPHONE
+                make_running_simulator_runtime_readwrite();
+#endif
+                if (simulator_launch_traced_app(sim_uuid, target->bundle_id, encoded_config) != KERN_SUCCESS) {
+                    printf("Failed to launch app in simulator\n");
+                    free((void *)encoded_config);
+                    return 1;
+                }
+            }
+            else {
+                // Non-simulator app launch.
+                // Terminate if already running, then launch with tracing config
+                terminate_app_if_running(target->bundle_id);
+                
+                // Setup a launch observer, to confirm the app starts and get its PID
+                dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+                on_process_launch(target->bundle_id, ^(pid_t launched_pid) {
+                    if (launched_pid > 0) {
+                        target->pid = launched_pid;
+                    }
+                    dispatch_semaphore_signal(sem);
+                });
+                
+                // Begin app launch -- config provided via env var
+                if (launch_traced_app(target->bundle_id, encoded_config) != KERN_SUCCESS) {
+                    printf("Failed to launch app\n");
+                    free((void *)encoded_config);
+                    return 1;
+                }
+                
+                // Wait for the launch-observer to trigger or timeout
+                if (dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC)) != 0) {
+                    printf("Timed out waiting for app launch\n");
+                    free((void *)encoded_config);
+                    return 1;
+                }
+                
+                if (target->pid <= 0) {
+                    printf("Failed to get launched app PID\n");
+                    free((void *)encoded_config);
+                    return 1;
+                }
+            }
+        }
+        
+        free((void *)encoded_config);
+        
+        // Attach an exception handler to the target process so that crash reports can be captured
+        if (setup_exception_handler_on_process(target->pid) != KERN_SUCCESS) {
+            printf("Warning: Failed to setup exception handler on target process\n");
+        }
+        
+        printf("Tracing process with PID: %d\n", target->pid);
         
         // The target app is running (either spawned new or attached to existing), and the library is injected.
         // Connect to the transport socket and start listening for incoming trace events
-        int status = 0;
-
-#if defined(__arm64__)
-        if (options.tui_mode) {
-            status = run_tui_trace_server(&config);
-        }
-
-        else 
-
-#endif // defined(__arm64__)
-
-        {
-            status = run_trace_server(&config, options.pid, exception_handler_needs_attachment);
-        }
         
-        return status;
+        bool tui_supported = false;
+#if defined(__arm64__)
+        tui_supported = true;
+#endif
+        if (options.tui_mode) {
+            if (!tui_supported) {
+                printf("TUI mode is not supported on this architecture\n");
+                return 1;
+            }
+            
+            return run_tui_trace_server(&config);
+        }
+        else {
+            return run_trace_server(&config, target->pid);
+        }
     }
     
     return 0;

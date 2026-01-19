@@ -10,6 +10,11 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-bool setup_exception_handler_on_process(pid_t traced_app_pid);
+/**
+ * Sets up an exception handler on a traced process to catch crashes
+ * @param traced_app_pid The PID of the traced application
+ * @return KERN_SUCCESS on success, an error code on failure
+ */
+kern_return_t setup_exception_handler_on_process(pid_t traced_app_pid);
 
 #endif /* crash_handler_h */

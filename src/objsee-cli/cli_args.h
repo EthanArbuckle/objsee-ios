@@ -12,9 +12,16 @@
 #include "tracer_types.h"
 
 typedef struct {
+    // To attach
+    const char *process_hint;
+    pid_t pid;
+    // To launch
     const char *bundle_id;
     const char *file_path;
-    pid_t pid;
+} target_process_options_t;
+
+typedef struct {
+    target_process_options_t target_process;
     bool tui_mode;
     bool show_help;
     bool show_version;

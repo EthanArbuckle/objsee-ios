@@ -14,9 +14,8 @@
  * @brief Serialize a tracer configuration into a base64 encoded string
  *
  * @param config The configuration to encode
- * @param out_str The output string
- * @return tracer_result_t
+ * @return const char* A base64 encoded json string representing the configuration. This string must be freed by the caller.
  */
-tracer_result_t encode_tracer_config(tracer_config_t *config, char **out_str);
+const char *encode_tracer_config(tracer_config_t *config);
 
 #endif // CONFIG_ENCODE_H

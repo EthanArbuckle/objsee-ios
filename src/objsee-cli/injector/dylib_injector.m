@@ -223,30 +223,25 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
 
 kern_return_t inject_dylib_into_pid(const char *dylib_path, int pid) {
     uint64_t dlopen_address = (uint64_t)dlsym(RTLD_DEFAULT, "dlopen");
-    if (call_remote_function_with_string(dlopen_address, dylib_path, RTLD_NOW, pid) != KERN_SUCCESS) {
-        printf("Failed to load dylib\n");
-        return -1;
-    }
-    
-    return KERN_SUCCESS;
+    return call_remote_function_with_string(dlopen_address, dylib_path, RTLD_NOW, pid);
 }
 
-uint64_t get_function_address_in_pid(const char *function_name, const char *image_filter, int pid) {
+uint64_t remote_dlsym(int pid, const char *image_name, const char *symbol_name) {
     mach_port_t task;
     if (task_for_pid(mach_task_self(), pid, &task) != KERN_SUCCESS) {
-        printf("failed to get task for pid\n");
+        printf("%s: task_for_pid(%d) failed\n", __func__, pid);
         return 0;
     }
     
     CSSymbolicatorRef symbolicator = create_symbolicator_with_task(task);
     if (cs_isnull(symbolicator)) {
-        printf("Failed to create symbolicator\n");
-        return -1;
+        printf("%s: Failed to create symbolicator for pid %d\n", __func__, pid);
+        return 0;
     }
 
     __block CSSymbolRef resolved_symbol = (CSSymbolRef){};
-    if (image_filter != NULL) {
-        // Search all symbols owners looking for one with a path that matches image_filter
+    if (image_name != NULL) {
+        // Search all symbols owners looking for one with a path that matches/contains image_name
         for_each_symbol_owner(symbolicator, ^(CSSymbolOwnerRef owner) {
             if (!cs_isnull(resolved_symbol)) {
                 // Already found the symbol
@@ -258,12 +253,13 @@ uint64_t get_function_address_in_pid(const char *function_name, const char *imag
             }
             
             const char *image_path = get_image_path_for_symbol_owner(owner);
-            if (image_path == NULL) {
+            if (image_path == NULL || strstr(image_path, image_name) == NULL) {
+                // Not a match
                 return;
             }
             
             // Found a matching symbol owner. Try to resolve the symbol from it
-            resolved_symbol = get_symbol_from_owner_with_name(owner, function_name);
+            resolved_symbol = get_symbol_from_owner_with_name(owner, symbol_name);
         });
     }
     else {
@@ -275,7 +271,7 @@ uint64_t get_function_address_in_pid(const char *function_name, const char *imag
             }
 
             const char *name = get_name_for_symbol(current_symbol);
-            if (name == NULL || strcmp(name, function_name) != 0) {
+            if (name == NULL || strcmp(name, symbol_name) != 0) {
                 return;
             }
             resolved_symbol = current_symbol;
@@ -283,7 +279,6 @@ uint64_t get_function_address_in_pid(const char *function_name, const char *imag
     }
     
     if (cs_isnull(resolved_symbol)) {
-        printf("Failed to find symbol %s in pid %d\n", function_name, pid);
         return 0;
     }
     
