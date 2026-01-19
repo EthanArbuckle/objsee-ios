@@ -38,6 +38,11 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
         ctx->trace_depth = 0;
         ctx->capture_arguments = g_tracer_ctx->config.format.args != TRACER_ARG_FORMAT_NONE;
         
+        ctx->stack_base = NULL;
+        if (ctx->capture_arguments) {
+            ctx->stack_base = pthread_get_stackaddr_np(pthread_self());
+        }
+        
         uint64_t thread_id = 0;
         pthread_threadid_np(pthread_self(), &thread_id);
         ctx->thread_id = (uint16_t)(thread_id ^ (thread_id >> 32));
@@ -137,7 +142,7 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     frame->image_path = NULL;
     
     Class self_class = object_getClass(self);
-    if (self_class == NULL || !is_class_realized(self_class)) {
+    if (self_class == NULL || (uintptr_t)self_class < 0x10000 || !is_class_realized(self_class)) {
         return false;
     }
 
@@ -189,8 +194,29 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     };
     
     if (ctx->capture_arguments && ctx->stack_depth <= 32 && selector_has_arguments(frame->selector_name)) {
-        char local_stack_copy_buffer[2048];
-        memcpy(local_stack_copy_buffer, stack_ptr, sizeof(local_stack_copy_buffer));
+        // Make a copy of the stack so that memory doesn't change out from under us while interpreting argument values
+        char local_stack_copy_buffer[1024];
+        size_t stack_buffer_size = sizeof(local_stack_copy_buffer);
+        size_t bytes_to_copy = stack_buffer_size;
+        
+        uintptr_t current_sp = (uintptr_t)stack_ptr;
+        uintptr_t stack_base = (uintptr_t)ctx->stack_base;
+        if (current_sp < stack_base) {
+            // Don't read past the end of the stack (primarily applicable to armv7)
+            size_t available_bytes = stack_base - current_sp;
+            if (bytes_to_copy > available_bytes) {
+                bytes_to_copy = available_bytes;
+            }
+        }
+        
+        if (bytes_to_copy > 0) {
+            memcpy(local_stack_copy_buffer, stack_ptr, bytes_to_copy);
+        }
+        
+        if (bytes_to_copy < stack_buffer_size) {
+            memset(local_stack_copy_buffer + bytes_to_copy, 0, stack_buffer_size - bytes_to_copy);
+        }
+
         capture_arguments(g_tracer_ctx, frame, local_stack_copy_buffer, &event);
     }
     

@@ -53,23 +53,32 @@ typedef struct tracer_thread_context_frame_t {
 
 typedef struct tracer_thread_context_t {
     uint16_t thread_id;
+    
     uint32_t stack_depth;
     uint32_t trace_depth;
-    struct tracer_thread_context_frame_t frames[INITIAL_STACK_FRAMES];
+    
+    // Initial value is INITIAL_STACK_FRAMES, grows as needed
     uint32_t frame_capacity;
-
+    struct tracer_thread_context_frame_t frames[INITIAL_STACK_FRAMES];
+    
+    // Simple inline caches for last class and selector,
+    // to reduce calls into objc runtime for repeated calls
     struct {
         Class _Nullable cls;
         const char * _Nullable name;
         bool is_meta;
     } last_class_cache;
-    
+
     struct {
         SEL _Nullable sel;
         const char * _Nullable name;
     } last_sel_cache;
     
+    // Whether to capture arguments for traced calls
     bool capture_arguments;
+    
+    // Base of the stack for the current message send (for argument capture)
+    void * _Nullable stack_base;
 } __attribute__((aligned(64))) tracer_thread_context_t;
 
 typedef struct tracer_context_t {

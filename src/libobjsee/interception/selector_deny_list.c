@@ -23,8 +23,9 @@ static const uint32_t selector_skip_list[] = {
     0xC8C9FA1F,  // autorelease
     0xD9929EB3,  // dealloc
     0xEFF52FB5,  // _isDeallocating
+    0xfd723341,  // resolveInstanceMethod:
 };
-static const size_t selector_skip_list_len = 14;
+static const size_t selector_skip_list_len = sizeof(selector_skip_list) / sizeof(selector_skip_list[0]);
 
 __attribute__((aligned(16), hot, always_inline))
 static inline bool hash_in_denylist(uint32_t hash) {
