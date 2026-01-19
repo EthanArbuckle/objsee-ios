@@ -1,6 +1,6 @@
 ![](./imgs/banner.gif)
 
-objsee is a command-line tool and library for inspecting Objective-C method calls at runtime through `objc_msgSend` tracing. It currently supports arm64 architectures.
+objsee is a command-line tool and library for inspecting Objective-C method calls at runtime through `objc_msgSend` tracing. It supports armv7, arm64, and arm64e.
 
 ### Features
 
