@@ -51,7 +51,7 @@ static inline bool is_class_realized(Class cls) {
 
 #else
 
-_attribute__((always_inline))
+__attribute__((always_inline))
 static inline bool is_class_realized(Class cls) {
     return true;
 }

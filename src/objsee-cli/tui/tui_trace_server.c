@@ -5,15 +5,20 @@
 //  Created by Ethan Arbuckle on 12/21/24.
 //
 
+#include <CoreFoundation/CoreFoundation.h>
+#include "format.h"
+
 #if !defined(__arm64__)
 #warning "TUI Trace Server is only supported on arm64 architectures."
 
+int run_tui_trace_server(tracer_config_t *config) {
+    return -1;
+}
+
 #else
 
-#include <CoreFoundation/CoreFoundation.h>
 #include <netinet/in.h>
 #include <yyjson.h>
-#include "format.h"
 
 #if TARGET_OS_MAC && !TARGET_OS_IPHONE
 #include <curses.h>

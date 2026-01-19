@@ -6,11 +6,11 @@ kern_return_t inject_dylib_into_pid(const char *dylib_path, int pid) {
     return -1;
 }
 
-uint64_t get_function_address_in_pid(const char *function_name, const char *image_filter, int pid) {
+uint64_t remote_dlsym(int pid, const char *image_name, const char *symbol_name) {
     return 0;
 }
 
-kern_return_t call_remote_function_with_string(uint64_t function_address, const char *string_arg, pid_t pid) {
+kern_return_t call_remote_function_with_string(uint64_t function_address, const char *string_arg, uint64_t second_arg, pid_t pid) {
     return -1;
 }
 
