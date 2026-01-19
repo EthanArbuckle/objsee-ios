@@ -8,6 +8,7 @@
 #include <objc/runtime.h>
 #include <mach/mach.h>
 #include <dlfcn.h>
+#include "realized_class_tracking.h"
 #include "selector_deny_list.h"
 #include "event_handler.h"
 #include "signal_guard.h"
@@ -117,39 +118,27 @@ void free_event_arguments(tracer_event_t *event) {
 }
 
 __attribute__((aligned(16), always_inline, hot))
-void *pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t lr, void *stack_ptr) {
+bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t lr, void *stack_ptr) {
     struct tracer_thread_context_t *ctx = get_thread_context();
     
-    bool should_trace = true;
-    if (__builtin_expect(ctx->stack_depth + 1 >= INITIAL_STACK_FRAMES, 0)) {
+    int scratch_depth = ctx->stack_depth + 1;
+    if (__builtin_expect(scratch_depth >= INITIAL_STACK_FRAMES, 0)) {
         tracer_set_error(g_tracer_ctx, "stack depth exceeded limit");
-        should_trace = false;
+        return false;
     }
     
-    ctx->stack_depth += 1;
-    struct tracer_thread_context_frame_t *frame = &ctx->frames[ctx->stack_depth];
-    // LR is the minimal info needed for stuff that'a not being traced
+    if (!self || (uintptr_t)self <= 0x100 || selector_is_denylisted(_cmd)) {
+        return false;
+    }
+    
+    struct tracer_thread_context_frame_t *frame = &ctx->frames[scratch_depth];
     frame->lr = lr;
-    if (!should_trace || !self || (uintptr_t)self <= 0x100 || selector_is_denylisted(_cmd)) {
-        frame->traced = false;
-        return original_objc_msgSend;
-    }
-    
     frame->_cmd = _cmd;
-    frame->traced = true;
-    // Defer image resolution until it's needed by a filter)
     frame->image_path = NULL;
     
-    // Attempt to resolve an objc class for the object `self`.
-    // This has been observed to crash in some cases
-    Class self_class = NULL;
-    WHILE_IGNORING_SIGNALS({
-        self_class = object_getClass(self);
-    });
-
-    if (self_class == NULL) {
-        frame->traced = false;
-        return original_objc_msgSend;
+    Class self_class = object_getClass(self);
+    if (self_class == NULL || !is_class_realized(self_class)) {
+        return false;
     }
 
     // Resolve and cache class name, selector name, and whether the selector is a class method.
@@ -179,12 +168,13 @@ void *pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t
         frame->selector_name = ctx->last_sel_cache.name;
     }
     
-    frame->traced = tracer_should_trace(g_tracer_ctx, frame);
-    if (frame->traced == false) {
-        return original_objc_msgSend;
+    if (!tracer_should_trace(g_tracer_ctx, frame)) {
+        return false;
     }
     
-    // Create trace event
+    ctx->stack_depth++;
+    frame->traced = true;
+    
     tracer_event_t event = {
         .class_name = frame->self_class_name,
         .method_name = frame->selector_name,
@@ -211,7 +201,8 @@ void *pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t
     }
     
     ctx->trace_depth += 1;
-    return original_objc_msgSend;
+    
+    return true;
 }
 
 __attribute__((aligned(16), always_inline, hot))
