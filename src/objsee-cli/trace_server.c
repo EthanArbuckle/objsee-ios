@@ -11,6 +11,36 @@
 #include <poll.h>
 #include "crash_handler.h"
 #include "format.h"
+#include <sys/time.h>
+
+static uint64_t events_received = 0;
+static uint64_t bytes_received = 0;
+static uint64_t start_time_ms = 0;
+
+static uint64_t get_time_ms(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
+
+static void print_throughput_stats(void) {
+    if (start_time_ms == 0 || events_received == 0) {
+        return;
+    }
+    
+    uint64_t elapsed_ms = get_time_ms() - start_time_ms;
+    if (elapsed_ms == 0) {
+        return;
+    }
+    
+    double elapsed_sec = elapsed_ms / 1000.0;
+    double events_per_sec = events_received / elapsed_sec;
+    double mb_received = bytes_received / (1024.0 * 1024.0);
+    double mb_per_sec = mb_received / elapsed_sec;
+    
+    fflush(stdout);
+    fprintf(stderr, "\n[stats] %llu events in %.1fs | %.0f events/sec | %.2f MB (%.2f MB/sec)\n", events_received, elapsed_sec, events_per_sec, mb_received, mb_per_sec);
+}
 
 // Max time to wait for a client (the process being traced) to connect
 #define ACCEPT_TIMEOUT_SECONDS 20
@@ -125,6 +155,8 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid) {
             client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
             if (client_fd >= 0) {
                 printf("Connected!\n");
+                start_time_ms = get_time_ms();
+
                 break;
             }
         }
@@ -185,6 +217,8 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid) {
                     size_t line_len = line_end - line_start;
                     if (line_len > 0) {
                         *line_end = '\0';
+                        events_received++;
+                        bytes_received += line_len;
                         print_json_event_formatted_output(line_start, (int)line_len);
                     }
                     line_start = line_end + 1;
@@ -206,6 +240,8 @@ int run_trace_server(tracer_config_t *config, pid_t traced_pid) {
         }
     }
 
+    print_throughput_stats();
+    
     free(buffer);
 
     if (client_fd >= 0) {
