@@ -11,7 +11,7 @@
 
 static struct {
     bool initialized;
-    CSSymbolicatorRef (*CreateWithTaskFlagsAndNotification)(task_t, uint32_t, void *);
+    CSSymbolicatorRef (*CreateWithTask)(task_t);
     CSSymbolOwnerRef (*GetSymbolOwnerWithAddressAtTime)(CSSymbolicatorRef, vm_address_t, uint64_t);
     CSSymbolOwnerRef (*GetSymbolOwnerWithNameAtTime)(CSSymbolicatorRef, const char *, uint64_t);
     CSSymbolRef (*GetSymbolWithName)(CSSymbolicatorRef, const char *, uint64_t);
@@ -31,7 +31,7 @@ CSSymbolicatorRef create_symbolicator_with_task(task_t task) {
         return CSNULL;
     }
     
-    return CS.CreateWithTaskFlagsAndNotification(task, 1, NULL);
+    return CS.CreateWithTask(task);
 }
 
 CSSymbolOwnerRef get_symbol_owner(CSSymbolicatorRef symbolicator, uint64_t address) {
@@ -130,7 +130,7 @@ static kern_return_t init_core_symbolication(void) {
     dispatch_once(&onceToken, ^{
         CS.initialized = false;
         void *core_symbolication_handle = dlopen("/System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication", RTLD_NOW);
-        CS.CreateWithTaskFlagsAndNotification = dlsym(core_symbolication_handle, "CSSymbolicatorCreateWithTaskFlagsAndNotification");
+        CS.CreateWithTask = dlsym(core_symbolication_handle, "CSSymbolicatorCreateWithTask");
         CS.GetSymbolOwnerWithAddressAtTime = dlsym(core_symbolication_handle, "CSSymbolicatorGetSymbolOwnerWithAddressAtTime");
         CS.GetSymbolOwnerWithNameAtTime = dlsym(core_symbolication_handle, "CSSymbolicatorGetSymbolOwnerWithNameAtTime");
         CS.GetSymbolWithName = dlsym(core_symbolication_handle, "CSSymbolicatorGetSymbolWithNameAtTime");
