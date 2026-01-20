@@ -1,44 +1,50 @@
 #include <Foundation/Foundation.h>
-
-#if !defined(__arm64__)
-#warning "dylib_injector.m is only supported on arm64 architecture."
-kern_return_t inject_dylib_into_pid(const char *dylib_path, int pid) {
-    return -1;
-}
-
-uint64_t remote_dlsym(int pid, const char *image_name, const char *symbol_name) {
-    return 0;
-}
-
-kern_return_t call_remote_function_with_string(uint64_t function_address, const char *string_arg, uint64_t second_arg, pid_t pid) {
-    return -1;
-}
-
-#else
-
 #include <mach/mach.h>
 #include <dlfcn.h>
+#include "dylib_injector.h"
 #include "symbolication.h"
 
-extern kern_return_t mach_vm_allocate(vm_map_t target, mach_vm_address_t *address, mach_vm_size_t size, int flags);
-extern kern_return_t mach_vm_deallocate(vm_map_t target, mach_vm_address_t address, mach_vm_size_t size);
-extern kern_return_t mach_vm_protect(vm_map_t target_task, mach_vm_address_t address, mach_vm_size_t size, boolean_t set_maximum, vm_prot_t new_protection);
-extern kern_return_t mach_vm_write(vm_map_t target_task, mach_vm_address_t address, vm_offset_t data, mach_msg_type_number_t dataCnt);
-
-kern_return_t call_remote_function_with_string(uint64_t function_address, const char *string_arg, uint64_t second_arg, pid_t pid) {
+mach_port_t get_task_for_pid(int pid) {
     mach_port_t task = MACH_PORT_NULL;
     kern_return_t kr = task_for_pid(mach_task_self(), pid, &task);
     if (kr != KERN_SUCCESS || task == MACH_PORT_NULL) {
-        printf("task_for_pid(%d) failed: %s\n", pid, mach_error_string(kr));
-        return -1;
+        printf("%s: task_for_pid(%d) failed: %s\n", __func__, pid, mach_error_string(kr));
+        return MACH_PORT_NULL;
     }
 
-    mach_vm_size_t stack_size = 0x10000;
-    
-    mach_vm_address_t remote_stack = 0;
-    kr = mach_vm_allocate(task, &remote_stack, stack_size, VM_FLAGS_ANYWHERE);
+    return task;
+}
+
+kern_return_t write_string_to_remote_task(mach_port_t task, const char *string, mach_vm_address_t *remote_address, size_t *string_alloc_size) {
+    size_t string_len = strlen(string) + 1;
+    size_t alloc_size = (string_len + 0xFFF) & ~0xFFF;
+    mach_vm_address_t remote_string = 0;
+    kern_return_t kr = mach_vm_allocate(task, &remote_string, alloc_size, VM_FLAGS_ANYWHERE);
     if (kr != KERN_SUCCESS) {
-        printf("mach_vm_allocate(task=0x%x, size=0x%llx) failed: %s\n", task, stack_size, mach_error_string(kr));
+        printf("%s: remote_string mach_vm_allocate(task=0x%x, size=0x%zx) failed: %s\n", __func__, task, alloc_size, mach_error_string(kr));
+        return -1;
+    }
+    
+    kr = mach_vm_write(task, remote_string, (vm_offset_t)string, (mach_msg_type_number_t)string_len);
+    if (kr != KERN_SUCCESS) {
+        printf("%s: remote_string mach_vm_write(task=0x%x, addr=0x%llx) failed: %s\n", __func__, task, remote_string, mach_error_string(kr));
+        mach_vm_deallocate(task, remote_string, alloc_size);
+        return -1;
+    }
+    
+    *remote_address = remote_string;
+    *string_alloc_size = alloc_size;
+    return KERN_SUCCESS;
+}
+
+#if defined(__arm64__)
+
+kern_return_t call_remote_function_with_string(mach_port_t task, mach_vm_address_t function_address, mach_vm_address_t remote_string, uint32_t second_arg) {
+    mach_vm_size_t stack_size = 0x10000;
+    mach_vm_address_t remote_stack = 0;
+    kern_return_t kr = mach_vm_allocate(task, &remote_stack, stack_size, VM_FLAGS_ANYWHERE);
+    if (kr != KERN_SUCCESS) {
+        printf("%s: remote_stack mach_vm_allocate(task=0x%x, size=0x%llx) failed: %s\n", __func__, task, stack_size, mach_error_string(kr));
         return -1;
     }
     
@@ -49,30 +55,11 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
         return -1;
     }
 
-    size_t string_len = strlen(string_arg) + 1;
-    size_t string_alloc_size = (string_len + 0xFFF) & ~0xFFF;
-    mach_vm_address_t remote_string = 0;
-    kr = mach_vm_allocate(task, &remote_string, string_alloc_size, VM_FLAGS_ANYWHERE);
-    if (kr != KERN_SUCCESS) {
-        printf("mach_vm_allocate for remote string failed: %s\n", mach_error_string(kr));
-        mach_vm_deallocate(task, remote_stack, stack_size);
-        return -1;
-    }
-    
-    kr = mach_vm_write(task, remote_string, (vm_offset_t)string_arg, (mach_msg_type_number_t)string_len);
-    if (kr != KERN_SUCCESS) {
-        printf("mach_vm_write(task=0x%x, addr=0x%llx) for remote string failed: %s\n", task, remote_string, mach_error_string(kr));
-        mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
-        return -1;
-    }
-
     void *pthread_create_addr = dlsym(RTLD_DEFAULT, "pthread_create_from_mach_thread");
     void *pthread_exit_addr = dlsym(RTLD_DEFAULT, "pthread_exit");
     if (pthread_create_addr == NULL || pthread_exit_addr == NULL) {
-        printf("failed to resolve pthread symbols\n");
+        printf("%s: failed to resolve pthread symbols\n", __func__);
         mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
         return -1;
     }
 
@@ -94,9 +81,8 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
     mach_vm_address_t remote_payload = 0;
     kr = mach_vm_allocate(task, &remote_payload, payload_total_size, VM_FLAGS_ANYWHERE);
     if (kr != KERN_SUCCESS) {
-        printf("mach_vm_allocate for payload failed: %s\n", mach_error_string(kr));
+        printf("%s: remote_payload mach_vm_allocate(task=0x%x, size=0x%zx) failed: %s\n,", __func__, task, payload_total_size, mach_error_string(kr));
         mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
         return -1;
     }
     
@@ -110,18 +96,16 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
     kr = mach_vm_write(task, remote_payload, (vm_offset_t)payload_buf, (mach_msg_type_number_t)payload_total_size);
     free(payload_buf);
     if (kr != KERN_SUCCESS) {
-        printf("mach_vm_write for payload failed: %s\n", mach_error_string(kr));
+        printf("%s: remote_payload mach_vm_write(task=0x%x, addr=0x%llx) failed: %s\n", __func__, task, remote_payload, mach_error_string(kr));
         mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
         mach_vm_deallocate(task, remote_payload, payload_total_size);
         return -1;
     }
     
     kr = mach_vm_protect(task, remote_payload, payload_total_size, 0, VM_PROT_READ | VM_PROT_EXECUTE);
     if (kr != KERN_SUCCESS) {
-        printf("mach_vm_protect for payload failed: %s\n", mach_error_string(kr));
+        printf("%s: remote_payload mach_vm_protect(task=0x%x, addr=0x%llx) failed: %s\n", __func__, task, remote_payload, mach_error_string(kr));
         mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
         mach_vm_deallocate(task, remote_payload, payload_total_size);
         return -1;
     }
@@ -145,7 +129,6 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
     if (kr != KERN_SUCCESS) {
         printf("mach_vm_allocate for bootstrap failed: %s\n", mach_error_string(kr));
         mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
         mach_vm_deallocate(task, remote_payload, payload_total_size);
         return -1;
     }
@@ -159,7 +142,6 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
     if (kr != KERN_SUCCESS) {
         printf("mach_vm_write for bootstrap failed: %s\n", mach_error_string(kr));
         mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
         mach_vm_deallocate(task, remote_payload, payload_total_size);
         mach_vm_deallocate(task, remote_bootstrap, bootstrap_size);
         return -1;
@@ -169,7 +151,6 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
     if (kr != KERN_SUCCESS) {
         printf("mach_vm_protect for bootstrap failed: %s\n", mach_error_string(kr));
         mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
         mach_vm_deallocate(task, remote_payload, payload_total_size);
         mach_vm_deallocate(task, remote_bootstrap, bootstrap_size);
         return -1;
@@ -186,7 +167,6 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
     if (kr != KERN_SUCCESS) {
         printf("thread_create_running failed: %s\n", mach_error_string(kr));
         mach_vm_deallocate(task, remote_stack, stack_size);
-        mach_vm_deallocate(task, remote_string, string_alloc_size);
         mach_vm_deallocate(task, remote_payload, payload_total_size);
         mach_vm_deallocate(task, remote_bootstrap, bootstrap_size);
         return -1;
@@ -221,18 +201,135 @@ kern_return_t call_remote_function_with_string(uint64_t function_address, const 
     return completed ? KERN_SUCCESS : -1;
 }
 
-kern_return_t inject_dylib_into_pid(const char *dylib_path, int pid) {
-    uint64_t dlopen_address = (uint64_t)dlsym(RTLD_DEFAULT, "dlopen");
-    return call_remote_function_with_string(dlopen_address, dylib_path, RTLD_NOW, pid);
+#else
+
+kern_return_t call_remote_function_with_string(mach_port_t task, mach_vm_address_t function_address, mach_vm_address_t remote_string, uint32_t second_arg) {
+    thread_act_array_t thread_list;
+    mach_msg_type_number_t thread_count;
+    kern_return_t kr = task_threads(task, &thread_list, &thread_count);
+    if (kr != KERN_SUCCESS) {
+        printf("%s: task_threads failed: %s\n", __func__, mach_error_string(kr));
+        return kr;
+    }
+
+    if (thread_count == 0) {
+        printf("%s: No threads found in target task\n", __func__);
+        return KERN_FAILURE;
+    }
+
+    mach_port_t target_thread = thread_list[0];
+    if (thread_count > 2) {
+        target_thread = thread_list[2];
+    }
+
+    mach_vm_address_t remote_page = 0;
+    kr = mach_vm_allocate(task, &remote_page, 4096, VM_FLAGS_ANYWHERE);
+    if (kr != KERN_SUCCESS) {
+        printf("%s: mach_vm_allocate failed: %s\n", __func__, mach_error_string(kr));
+        vm_deallocate(mach_task_self(), (vm_address_t)thread_list, thread_count * sizeof(thread_t));
+        return kr;
+    }
+
+    struct {
+        uint16_t code[6];
+        uint32_t data[3];
+    } trampoline;
+
+    trampoline.code[0] = 0x4802; // ldr r0, [pc, #8]  -> data[0]
+    trampoline.code[1] = 0x4903; // ldr r1, [pc, #12] -> data[1]
+    trampoline.code[2] = 0x4b03; // ldr r3, [pc, #12] -> data[2]
+    trampoline.code[3] = 0x4798; // blx r3
+    trampoline.code[4] = 0xe7fe; // b . (trap)
+    trampoline.code[5] = 0xbf00; // nop
+
+    trampoline.data[0] = (uint32_t)remote_string;
+    trampoline.data[1] = second_arg;
+    
+    if ((function_address & 1) == 0 && (function_address & 3) != 0) {
+        function_address |= 1;
+    }
+    trampoline.data[2] = function_address;
+
+    mach_vm_write(task, remote_page, (vm_offset_t)&trampoline, sizeof(trampoline));
+    mach_vm_protect(task, remote_page, 4096, 0, VM_PROT_READ | VM_PROT_EXECUTE);
+
+    if (thread_suspend(target_thread) != KERN_SUCCESS) {
+        printf("%s: thread_suspend failed\n", __func__);
+        mach_vm_deallocate(task, remote_page, 4096);
+        vm_deallocate(mach_task_self(), (vm_address_t)thread_list, thread_count * sizeof(thread_t));
+        return KERN_FAILURE;
+    }
+    thread_abort(target_thread);
+
+    arm_thread_state_t original_state;
+    mach_msg_type_number_t state_count = ARM_THREAD_STATE_COUNT;
+    thread_get_state(target_thread, ARM_THREAD_STATE, (thread_state_t)&original_state, &state_count);
+
+    arm_vfp_state_t original_vfp_state;
+    mach_msg_type_number_t vfp_count = ARM_VFP_STATE_COUNT;
+    thread_get_state(target_thread, ARM_VFP_STATE, (thread_state_t)&original_vfp_state, &vfp_count);
+
+    arm_thread_state_t new_state = original_state;
+    new_state.__pc = (uint32_t)remote_page | 1;
+    new_state.__cpsr |= 0x20;
+    new_state.__lr = (uint32_t)remote_page + 0x08 + 1;
+    new_state.__sp = (new_state.__sp - 128) & ~0xF;
+
+    thread_set_state(target_thread, ARM_THREAD_STATE, (thread_state_t)&new_state, ARM_THREAD_STATE_COUNT);
+    thread_resume(target_thread);
+
+    int completed = 0;
+    arm_thread_state_t cur_state;
+    uint32_t trap_addr = (uint32_t)remote_page + 0x08;
+
+    for (int i = 0; i < 2000; i++) { // 2 seconds timeout
+        usleep(1000);
+        state_count = ARM_THREAD_STATE_COUNT;
+        if (thread_get_state(target_thread, ARM_THREAD_STATE, (thread_state_t)&cur_state, &state_count) == KERN_SUCCESS) {
+            if ((cur_state.__pc & ~1) == trap_addr) {
+                completed = 1;
+                break;
+            }
+        }
+    }
+
+    thread_suspend(target_thread);
+    thread_set_state(target_thread, ARM_VFP_STATE, (thread_state_t)&original_vfp_state, ARM_VFP_STATE_COUNT);
+    thread_set_state(target_thread, ARM_THREAD_STATE, (thread_state_t)&original_state, ARM_THREAD_STATE_COUNT);
+    thread_resume(target_thread);
+
+    vm_deallocate(mach_task_self(), (vm_address_t)thread_list, thread_count * sizeof(thread_t));
+
+    return completed ? KERN_SUCCESS : KERN_FAILURE;
 }
 
-uint64_t remote_dlsym(int pid, const char *image_name, const char *symbol_name) {
-    mach_port_t task;
-    if (task_for_pid(mach_task_self(), pid, &task) != KERN_SUCCESS) {
-        printf("%s: task_for_pid(%d) failed\n", __func__, pid);
+#endif
+
+kern_return_t remote_dlopen(int pid, const char *dylib_path, int flags) {
+    mach_port_t task = get_task_for_pid(pid);
+
+    mach_vm_address_t remote_string = 0;
+    size_t string_alloc_size = 0;
+    if (write_string_to_remote_task(task, dylib_path, &remote_string, &string_alloc_size) != KERN_SUCCESS) {
+        printf("Failed to write remote string.\n");
+        return KERN_FAILURE;
+    }
+
+    mach_vm_address_t dlopen_address = (mach_vm_address_t)dlsym(RTLD_DEFAULT, "dlopen");
+    kern_return_t kr = call_remote_function_with_string(task, (mach_vm_address_t)dlopen_address, remote_string, flags);
+
+    mach_vm_deallocate(task, remote_string, string_alloc_size);
+
+    return kr;
+}
+
+mach_vm_address_t remote_dlsym(int pid, const char *image_name, const char *symbol_name) {
+    mach_port_t task = get_task_for_pid(pid);
+    if (task == MACH_PORT_NULL) {
+        printf("%s: Failed to get task for pid %d\n", __func__, pid);
         return 0;
     }
-    
+
     CSSymbolicatorRef symbolicator = create_symbolicator_with_task(task);
     if (cs_isnull(symbolicator)) {
         printf("%s: Failed to create symbolicator for pid %d\n", __func__, pid);
@@ -284,5 +381,3 @@ uint64_t remote_dlsym(int pid, const char *image_name, const char *symbol_name) 
     
     return get_range_for_symbol(resolved_symbol).location;
 }
-
-#endif // !defined(__arm64__)

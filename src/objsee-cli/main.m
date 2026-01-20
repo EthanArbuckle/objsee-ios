@@ -203,23 +203,23 @@ int main(int argc, char *argv[]) {
             
             // If attaching to an existing pid:
             // 1. Inject the library dylib into the running process
-            // 2. Lookup the address of the entry point function objsee_main()
+            // 2. Lookup the address of the entry point function objsee_remote_entrypoint()
             // 3. Call the entry point function with the encoded config string as an argument
             
             // This is not immediately checked for success because, more important than the injection itself, is whether
             // or not libobjsee exists in the target process. If libobjsee is loaded in the target process despite
             // this injection step failing, there's no problem and tracing should proceed
-            kern_return_t inject_result = inject_dylib_into_pid(OBJSEE_LIBRARY_PATH, target->pid);
-            
-            // Find the address of libobjsee's objsee_main() function in the running process
-            uint64_t objsee_main_addr = remote_dlsym(target->pid, "libobjsee", "objsee_main");
-            if (objsee_main_addr == 0 || objsee_main_addr == (uint64_t)-1) {
+            kern_return_t inject_result = remote_dlopen(target->pid, OBJSEE_LIBRARY_PATH, RTLD_NOW);
+  
+            // Find the address of libobjsee's objsee_remote_entrypoint() function in the running process
+            mach_vm_address_t objsee_remote_entrypoint_addr = remote_dlsym(target->pid, "libobjsee", "objsee_remote_entrypoint");
+            if (objsee_remote_entrypoint_addr == 0 || objsee_remote_entrypoint_addr == (uint64_t)-1) {
                 // Symbol wasn't found
                 if (inject_result != KERN_SUCCESS) {
                     printf("Failed to inject %s into process with PID %d\n", OBJSEE_LIBRARY_PATH, target->pid);
                 }
                 else {
-                    printf("Injected %s into process with PID %d, but failed to find objsee_main symbol\n", OBJSEE_LIBRARY_PATH, target->pid);
+                    printf("Injected %s into process with PID %d, but failed to find objsee_remote_entrypoint() symbol\n", OBJSEE_LIBRARY_PATH, target->pid);
                 }
                 
                 free((void *)encoded_config);
@@ -227,7 +227,16 @@ int main(int argc, char *argv[]) {
             }
 
             // Invoke entry point with the encoded config
-            kern_return_t call_result = call_remote_function_with_string(objsee_main_addr, encoded_config, 0, target->pid);
+            mach_port_t task = get_task_for_pid(target->pid);
+            mach_vm_address_t remote_string = 0;
+            size_t string_alloc_size = 0;
+            if (write_string_to_remote_task(task, encoded_config, &remote_string, &string_alloc_size) != KERN_SUCCESS) {
+                printf("Failed to write config string to process with PID %d\n", target->pid);
+                return -1;
+            }
+
+            kern_return_t call_result = call_remote_function_with_string(task, objsee_remote_entrypoint_addr, remote_string, 0);
+            mach_vm_deallocate(task, remote_string, string_alloc_size);
             if (call_result != KERN_SUCCESS) {
                 printf("Failed to invoke objsee_main() in process with PID %d\n", target->pid);
                 free((void *)encoded_config);
