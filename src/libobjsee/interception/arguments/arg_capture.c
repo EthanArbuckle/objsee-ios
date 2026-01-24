@@ -9,28 +9,18 @@
 #include "objc_arg_description.h"
 #include "tracer_internal.h"
 #include "arg_description.h"
-#include "signal_guard.h"
 #include "encoding_size.h"
 #include "objc-internal.h"
 #include "logging.h"
 
 __attribute__((aligned(16), always_inline, hot))
 void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_frame_t *frame, void *stack_base, tracer_event_t *event) {
-    if (stack_base == NULL || event == NULL) {
-        return;
-    }
-    
-    Class traced_class = objc_getClass(frame->self_class_name);
-    if (traced_class == NULL) {
-        return;
-    }
-    
     Method method;
     if (frame->selector_is_class_method) {
-        method = class_getClassMethod(traced_class, frame->_cmd);
+        method = class_getClassMethod(frame->self_class, frame->_cmd);
     }
     else {
-        method = class_getInstanceMethod(traced_class, frame->_cmd);
+        method = class_getInstanceMethod(frame->self_class, frame->_cmd);
     }
     
     if (method == NULL) {
