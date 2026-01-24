@@ -176,22 +176,23 @@ void objsee_main(const char *encoded_config_string, bool from_dyld_insert) {
 }
 
 typedef struct {
-    char *config_copy;
+    char *encoded_config_string;
 } thread_args_t;
 
 void *objsee_worker_thread(void *arg) {
     thread_args_t *args = (thread_args_t *)arg;
+    // The real tracer entrypoint
+    objsee_main(args->encoded_config_string, false);
     
-    objsee_main(args->config_copy, false);
-    
-    if (args->config_copy) {
-        free(args->config_copy);
+    if (args->encoded_config_string) {
+        free(args->encoded_config_string);
     }
     free(args);
     
     return NULL;
 }
 
+// This is used by the CLI tool when injecting libobjsee into running processes.
 void objsee_remote_entrypoint(const char *encoded_config_string) {
     thread_args_t *args = malloc(sizeof(thread_args_t));
     if (args == NULL) {
@@ -199,19 +200,21 @@ void objsee_remote_entrypoint(const char *encoded_config_string) {
     }
 
     if (encoded_config_string) {
-        args->config_copy = strdup(encoded_config_string);
+        args->encoded_config_string = strdup(encoded_config_string);
     }
     else {
-        args->config_copy = NULL;
+        args->encoded_config_string = NULL;
     }
-
+    
+    // armv7 injection (thread hijacking) can't create threads remotely (no pthread_create_from_mach_thread), so the tracer
+    // does thread creation itself here
     pthread_t thread;
     if (pthread_create(&thread, NULL, objsee_worker_thread, args) == 0) {
         pthread_detach(thread);
     }
     else {
-        if (args->config_copy) {
-            free(args->config_copy);
+        if (args->encoded_config_string) {
+            free(args->encoded_config_string);
         }
         free(args);
     }
