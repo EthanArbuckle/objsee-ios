@@ -11,6 +11,8 @@
 typedef struct {
     char *data;
     size_t length;
+    bool is_inline;
+    char inline_data[1024];
 } queued_message_t;
 
 
@@ -19,19 +21,21 @@ typedef struct {
         int fd;
         void *custom_handle;
     };
-    
+
     struct {
         queued_message_t *messages;
         size_t capacity;
         size_t count;
+        size_t head;
+        size_t tail;
         pthread_mutex_t lock;
         pthread_cond_t not_full;
         pthread_cond_t not_empty;
     } queue;
-    
+
     bool running;
     pthread_t transport_thread;
-    
+
     tracer_transport_type_t type;
 } transport_context_t;
 

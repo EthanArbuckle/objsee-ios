@@ -55,10 +55,16 @@ static void *transport_thread(void *tracer_arg) {
         }
         
         // Get next message
-        queued_message_t msg = ctx->queue.messages[0];
-        memmove(&ctx->queue.messages[0], &ctx->queue.messages[1], (ctx->queue.count - 1) * sizeof(queued_message_t));
+        size_t idx = ctx->queue.head;
+        queued_message_t msg = ctx->queue.messages[idx];
+        if (msg.is_inline) {
+            msg.data = msg.inline_data;
+        }
+        memset(&ctx->queue.messages[idx], 0, sizeof(queued_message_t));
+
+        ctx->queue.head = (ctx->queue.head + 1) % ctx->queue.capacity;
         ctx->queue.count--;
-        
+
         pthread_cond_signal(&ctx->queue.not_full);
         pthread_mutex_unlock(&ctx->queue.lock);
         
@@ -108,13 +114,17 @@ static void *transport_thread(void *tracer_arg) {
                 tracer_set_error(tracer, "Send failed: %s", strerror(errno));
                 
                 free(send_buffer);
-                free(msg.data);
+                if (!msg.is_inline) {
+                    free(msg.data);
+                }
                 return NULL;
             }
         }
         
         free(send_buffer);
-        free(msg.data);
+        if (!msg.is_inline) {
+            free(msg.data);
+        }
     }
     
     return NULL;
@@ -231,7 +241,7 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
         return TRACER_ERROR_INITIALIZATION;
     }
     
-    ctx->queue.capacity = 10000;
+    ctx->queue.capacity = 60000;
     ctx->queue.messages = calloc(ctx->queue.capacity, sizeof(queued_message_t));
     if (ctx->queue.messages == NULL) {
         pthread_cond_destroy(&ctx->queue.not_full);
@@ -241,7 +251,9 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
         tracer->transport_context = NULL;
         return TRACER_ERROR_MEMORY;
     }
-
+    ctx->queue.head = 0;
+    ctx->queue.tail = 0;
+    
     ctx->running = true;
     int thread_err = pthread_create(&ctx->transport_thread, NULL, transport_thread, tracer);
     if (thread_err != 0) {
@@ -305,33 +317,41 @@ tracer_result_t transport_send(tracer_t *tracer, const void *data, size_t length
     switch (ctx->type) {
         case TRACER_TRANSPORT_SOCKET:
         case TRACER_TRANSPORT_FILE: {
-            char *data_copy = malloc(length);
-            if (data_copy == NULL) {
-                
-                tracer_set_error(tracer, "Failed to allocate memory");
-                return TRACER_ERROR_MEMORY;
-            }
-            memcpy(data_copy, data, length);
-            
-            struct timespec timeout;
-            make_abs_timespec_from_now(&timeout, 2);
             
             pthread_mutex_lock(&ctx->queue.lock);
-            
+
+            struct timespec timeout;
+            make_abs_timespec_from_now(&timeout, 2);
+
             while (ctx->queue.count >= ctx->queue.capacity) {
                 int rc = pthread_cond_timedwait(&ctx->queue.not_full, &ctx->queue.lock, &timeout);
                 if (rc == ETIMEDOUT) {
                     pthread_mutex_unlock(&ctx->queue.lock);
-                    free(data_copy);
                     return TRACER_ERROR_TIMEOUT;
                 }
             }
+
+            queued_message_t *msg = &ctx->queue.messages[ctx->queue.tail];
+
+            msg->length = length;
             
-            ctx->queue.messages[ctx->queue.count++] = (queued_message_t){
-                .data = data_copy,
-                .length = length
-            };
-            
+            if (length > sizeof(msg->inline_data)) {
+                msg->data = malloc(length);
+                if (msg->data == NULL) {
+                    pthread_mutex_unlock(&ctx->queue.lock);
+                    return TRACER_ERROR_MEMORY;
+                }
+                memcpy(msg->data, data, length);
+                msg->is_inline = false;
+            } else {
+                msg->is_inline = true;
+                memcpy(msg->inline_data, data, length);
+                msg->data = msg->inline_data;
+            }
+
+            ctx->queue.tail = (ctx->queue.tail + 1) % ctx->queue.capacity;
+            ctx->queue.count++;
+
             pthread_cond_signal(&ctx->queue.not_empty);
             pthread_mutex_unlock(&ctx->queue.lock);
             break;
