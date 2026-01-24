@@ -217,7 +217,7 @@ int apply_defaults_to_config(tracer_config_t *config) {
     config->format = (tracer_format_options_t){
         .include_formatted_trace = true,
         .include_event_json = false,
-        .output_as_json = true,
+        .output_as_json = false,
         .include_colors = true,
         .include_thread_id = true,
         .include_indents = true,

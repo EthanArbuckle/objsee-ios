@@ -58,6 +58,7 @@ static void handle_signal(int sig) {
 static void print_json_event_formatted_output(const char *json_str, int len) {
     yyjson_doc *doc = yyjson_read(json_str, len, 0);
     if (doc == NULL) {
+        puts(json_str);
         return;
     }
 
