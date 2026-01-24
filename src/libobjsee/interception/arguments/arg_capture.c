@@ -32,39 +32,23 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
         return;
     }
     
-    event->method_signature = method_getTypeEncoding(method);
-    if (event->method_signature == NULL) {
+    const char *method_signature = method_getTypeEncoding(method);
+    if (method_signature == NULL) {
         tracer_set_error(g_tracer_ctx, "Failed to locate method type encoding");
         return;
     }
     
-    vm_address_t signature_copy;
-    size_t sig_len = strlen(event->method_signature) + 1;
-    if (vm_allocate(mach_task_self(), &signature_copy, sig_len, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
-        tracer_set_error(g_tracer_ctx, "Failed to allocate memory for signature copy");
-        return;
-    }
-    memcpy((void *)signature_copy, event->method_signature, sig_len);
-    event->method_signature = (const char *)signature_copy;
+    event->method_signature = strdup(method_signature);
     
     size_t offsets[32] = {0};
     memset(offsets, 0, sizeof(offsets));
-    if (get_offsets_of_args_using_type_encoding(event->method_signature, offsets, arg_count) != KERN_SUCCESS) {
+    if (get_offsets_of_args_using_type_encoding(method_signature, offsets, arg_count) != KERN_SUCCESS) {
         tracer_set_error(g_tracer_ctx, "Failed to get offsets of arguments");
-        vm_deallocate(mach_task_self(), signature_copy, sig_len);
         return;
     }
     
     event->argument_count = arg_count - 2;
-    vm_address_t args_buf;
-    size_t args_size = event->argument_count * sizeof(tracer_argument_t);
-    if (vm_allocate(mach_task_self(), &args_buf, args_size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
-        tracer_set_error(g_tracer_ctx, "Failed to allocate memory for arguments");
-        vm_deallocate(mach_task_self(), signature_copy, sig_len);
-        return;
-    }
-    memset((void *)args_buf, 0, args_size);
-    event->arguments = (tracer_argument_t *)args_buf;
+    event->arguments = (tracer_argument_t *)calloc(event->argument_count, sizeof(tracer_argument_t));
     
     for (unsigned int i = 2; i < arg_count; i++) {
         tracer_argument_t *event_arg = &event->arguments[i - 2];
@@ -90,14 +74,8 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             objsee_log("Failed to get type encoding for argument %d\n", i);
             continue;
         }
-        
-        vm_address_t type_copy;
-        size_t type_len = strlen(arg_type) + 1;
-        if (vm_allocate(mach_task_self(), &type_copy, type_len, VM_FLAGS_ANYWHERE) == KERN_SUCCESS) {
-            memcpy((void *)type_copy, arg_type, type_len);
-            event_arg->type_encoding = (const char *)type_copy;
-        }
 
+        event_arg->type_encoding = strdup(arg_type);
         if (event_arg->type_encoding == NULL) {
             continue;
         }
@@ -133,13 +111,8 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             if (class_name == NULL) {
                 return;
             }
-            
-            vm_address_t name_copy;
-            size_t name_len = strlen(class_name) + 1;
-            if (vm_allocate(mach_task_self(), &name_copy, name_len, VM_FLAGS_ANYWHERE) == KERN_SUCCESS) {
-                memcpy((void *)name_copy, class_name, name_len);
-                event_arg->objc_class_name = (const char *)name_copy;
-            }
+
+            event_arg->objc_class_name = strdup(class_name);
             event_arg->objc_class = object_class;
             
             char description_buf[1024];
@@ -149,40 +122,23 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
                 objsee_log("Failed to get description for objc argument %d of type %s, class: %s, sel: %s, sig: %s\n", i, event_arg->type_encoding, class_name, sel_name, event->method_signature);
                 continue;
             }
-            
-            vm_address_t desc_copy;
-            size_t desc_len = strlen(description_buf) + 1;
-            if (vm_allocate(mach_task_self(), &desc_copy, desc_len, VM_FLAGS_ANYWHERE) == KERN_SUCCESS) {
-                memcpy((void *)desc_copy, description_buf, desc_len);
-                event_arg->description = (const char *)desc_copy;
-            }
+
+            event_arg->description = strdup(description_buf);
         }
         else {
             // Make a copy of the argument value. The real one is vulnerable to external modification / deallocation,
             // which could cause crashes when passing it to runtime functions like object_getClass()
-            if (event_arg->address == NULL) {
-                vm_deallocate(mach_task_self(), type_copy, type_len);
-                continue;
-            }
-            
             if ((uintptr_t)event_arg->address < 0x1000) {
                 objsee_log("Invalid argument address: %p\n", event_arg->address);
-                vm_deallocate(mach_task_self(), type_copy, type_len);
                 continue;
             }
-            
-            vm_address_t arg_value_buf;
-            if (vm_allocate(mach_task_self(), &arg_value_buf, event_arg->size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
-                objsee_log("Failed to allocate memory for argument value with size %zu\n", (size_t)event_arg->size);
-                vm_deallocate(mach_task_self(), type_copy, type_len);
-                continue;
+
+            char arg_value_buf[512];
+            if (event_arg->size <= sizeof(arg_value_buf)) {
+                memcpy(arg_value_buf, event_arg->address, event_arg->size);
             }
-            
-            kern_return_t kr = vm_read_overwrite(mach_task_self(), (vm_address_t)event_arg->address, event_arg->size, (vm_address_t)arg_value_buf, &event_arg->size);
-            if (kr != KERN_SUCCESS) {
-                objsee_log("Failed to read argument value at address %p: %s\n", event_arg->address, mach_error_string(kr));
-                vm_deallocate(mach_task_self(), arg_value_buf, event_arg->size);
-                vm_deallocate(mach_task_self(), type_copy, type_len);
+            else {
+                objsee_log("Argument size %d exceeds local buffer size %d for argument %d of type %s\n", (int)event_arg->size, (int)sizeof(arg_value_buf), i, event_arg->type_encoding);
                 continue;
             }
             
@@ -192,19 +148,11 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             char description_buf[1024];
             if (description_for_argument(event_arg, g_tracer_ctx->config.format.args, description_buf, sizeof(description_buf)) != KERN_SUCCESS) {
                 objsee_log("Failed to get description for basic argument %d of type %s. class: %s, method: %s, method signature: %s\n", i, event_arg->type_encoding, event->class_name, event->method_name, event->method_signature);
-                vm_deallocate(mach_task_self(), arg_value_buf, event_arg->size);
                 event_arg->address = (void *)original_arg_address;
                 continue;
             }
-            
-            vm_address_t desc_copy;
-            size_t desc_len = strlen(description_buf) + 1;
-            if (vm_allocate(mach_task_self(), &desc_copy, desc_len, VM_FLAGS_ANYWHERE) == KERN_SUCCESS) {
-                memcpy((void *)desc_copy, description_buf, desc_len);
-                event_arg->description = (const char *)desc_copy;
-            }
-            
-            vm_deallocate(mach_task_self(), arg_value_buf, event_arg->size);
+
+            event_arg->description = strdup(description_buf);
             event_arg->address = (void *)original_arg_address;
         }
     }

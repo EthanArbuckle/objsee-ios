@@ -15,6 +15,9 @@
 #include "tracer.h"
 #include "rebind.h"
 
+#define LIKELY(x)   __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
 extern void new_objc_msgSend(void);
 
 void *original_objc_msgSend = NULL;
@@ -28,7 +31,7 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
     struct tracer_thread_context_t *ctx = (struct tracer_thread_context_t *)pthread_getspecific(interception_stacktrace_thread_key);
     if (__builtin_expect(ctx == NULL, 0)) {
         ctx = (struct tracer_thread_context_t *)calloc(1, sizeof(struct tracer_thread_context_t));
-        if (ctx == NULL) {
+        if (UNLIKELY(ctx == NULL)) {
             tracer_set_error(g_tracer_ctx, "get_thread_context: Failed to allocate thread context");
             return NULL;
         }
@@ -52,16 +55,6 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
     return ctx;
 }
 
-__attribute__((always_inline)) static inline
-bool is_class_method_fast(Class cls, SEL cmd) {
-    // Most methods are instance methods
-    return false;
-    if (__builtin_expect(!class_isMetaClass(cls), 1)) {
-        return false;
-    }
-    return true;
-}
-
 __attribute__((always_inline))
 static inline bool selector_has_arguments(const char *sel_name) {
     while (*sel_name) {
@@ -73,40 +66,36 @@ static inline bool selector_has_arguments(const char *sel_name) {
 }
 
 void free_event_arguments(tracer_event_t *event) {
-    if (event == NULL) {
-        return;
-    }
-    
-    if (event->method_signature) {
-        vm_deallocate(mach_task_self(), (vm_address_t)event->method_signature, strlen(event->method_signature) + 1);
+    if (LIKELY(event->method_signature != NULL)) {
+        free((void *)event->method_signature);
         event->method_signature = NULL;
     }
     
-    if (event->arguments) {
+    if (LIKELY(event->arguments != NULL)) {
         for (size_t i = 0; i < event->argument_count; i++) {
             tracer_argument_t *arg = &event->arguments[i];
-            if (arg->type_encoding) {
-                vm_deallocate(mach_task_self(), (vm_address_t)arg->type_encoding, strlen(arg->type_encoding) + 1);
+            if (LIKELY(arg->type_encoding != NULL)) {
+                free((void *)arg->type_encoding);
                 arg->type_encoding = NULL;
             }
             
-            if (arg->objc_class_name) {
-                vm_deallocate(mach_task_self(), (vm_address_t)arg->objc_class_name, strlen(arg->objc_class_name) + 1);
+            if (LIKELY(arg->objc_class_name != NULL)) {
+                free((void *)arg->objc_class_name);
                 arg->objc_class_name = NULL;
             }
             
-            if (arg->description) {
-                vm_deallocate(mach_task_self(), (vm_address_t)arg->description, strlen(arg->description) + 1);
+            if (LIKELY(arg->description != NULL)) {
+                free((void *)arg->description);
                 arg->description = NULL;
             }
             
-            if (arg->block_signature) {
-                vm_deallocate(mach_task_self(), (vm_address_t)arg->block_signature, strlen(arg->block_signature) + 1);
+            if (UNLIKELY(arg->block_signature != NULL)) {
+                free((void *)arg->block_signature);
                 arg->block_signature = NULL;
             }
         }
         
-        vm_deallocate(mach_task_self(), (vm_address_t)event->arguments, event->argument_count * sizeof(tracer_argument_t));
+        free(event->arguments);
         event->arguments = NULL;
     }
 
@@ -126,7 +115,7 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     struct tracer_thread_context_t *ctx = get_thread_context();
     
     int scratch_depth = ctx->stack_depth + 1;
-    if (__builtin_expect(scratch_depth >= INITIAL_STACK_FRAMES, 0)) {
+    if (UNLIKELY(scratch_depth >= INITIAL_STACK_FRAMES)) {
         tracer_set_error(g_tracer_ctx, "stack depth exceeded limit");
         return false;
     }
@@ -141,13 +130,13 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     frame->image_path = NULL;
     
     Class self_class = object_getClass(self);
-    if (self_class == NULL || (uintptr_t)self_class < 0x10000 || !is_class_realized(self_class)) {
+    if (UNLIKELY(self_class == NULL || (uintptr_t)self_class < 0x10000 || !is_class_realized(self_class))) {
         return false;
     }
 
     // Resolve and cache class name, selector name, and whether the selector is a class method.
     // These details will be needed by filters later on and could have interest by an API user.
-    if (ctx->last_class_cache.cls == self_class) {
+    if (UNLIKELY(ctx->last_class_cache.cls == self_class)) {
         frame->self_class = self_class;
         frame->self_class_name = ctx->last_class_cache.name;
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
@@ -155,14 +144,14 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     else {
         ctx->last_class_cache.cls = self_class;
         ctx->last_class_cache.name = class_getName(self_class);
-        ctx->last_class_cache.is_meta = is_class_method_fast(self_class, _cmd);
+        ctx->last_class_cache.is_meta = class_isMetaClass(self_class);
 
         frame->self_class = self_class;
         frame->self_class_name = ctx->last_class_cache.name;
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
     }
     
-    if (ctx->last_sel_cache.sel == _cmd) {
+    if (UNLIKELY(ctx->last_sel_cache.sel == _cmd)) {
         frame->selector_name = ctx->last_sel_cache.name;
     }
     else {
@@ -192,7 +181,8 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         .method_signature = NULL,
     };
     
-    if (ctx->capture_arguments && ctx->stack_depth <= 32 && selector_has_arguments(frame->selector_name)) {
+    bool should_capture_args = ctx->capture_arguments && ctx->stack_depth <= 32 && selector_has_arguments(frame->selector_name);
+    if (LIKELY(should_capture_args)) {
         // Make a copy of the stack so that memory doesn't change out from under us while interpreting argument values
         char local_stack_copy_buffer[1024];
         size_t stack_buffer_size = sizeof(local_stack_copy_buffer);
@@ -200,19 +190,19 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         
         uintptr_t current_sp = (uintptr_t)stack_ptr;
         uintptr_t stack_base = (uintptr_t)ctx->stack_base;
-        if (current_sp < stack_base) {
+        if (LIKELY(current_sp < stack_base)) {
             // Don't read past the end of the stack (primarily applicable to armv7)
             size_t available_bytes = stack_base - current_sp;
-            if (bytes_to_copy > available_bytes) {
+            if (UNLIKELY(bytes_to_copy > available_bytes)) {
                 bytes_to_copy = available_bytes;
             }
         }
         
-        if (bytes_to_copy > 0) {
+        if (LIKELY(bytes_to_copy > 0)) {
             memcpy(local_stack_copy_buffer, stack_ptr, bytes_to_copy);
         }
         
-        if (bytes_to_copy < stack_buffer_size) {
+        if (UNLIKELY(bytes_to_copy < stack_buffer_size)) {
             memset(local_stack_copy_buffer + bytes_to_copy, 0, stack_buffer_size - bytes_to_copy);
         }
 
@@ -221,8 +211,10 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     
     tracer_handle_event(g_tracer_ctx, &event);
     
-    if (__builtin_expect(event.arguments != NULL, 0)) {
-        free_event_arguments(&event);
+    if (LIKELY(should_capture_args)) {
+        if (LIKELY(event.arguments != NULL)) {
+            free_event_arguments(&event);
+        }
     }
     
     ctx->trace_depth += 1;
