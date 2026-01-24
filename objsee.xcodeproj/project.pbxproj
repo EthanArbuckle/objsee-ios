@@ -51,8 +51,6 @@
 		5F9EE62B2D597BAC00A32B14 /* CoreSymbolicationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE62A2D597BAC00A32B14 /* CoreSymbolicationTests.m */; };
 		5F9EE62C2D597C9D00A32B14 /* symbolication.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F8BED422D3A880300D52DC6 /* symbolication.c */; };
 		5F9EE6312D5998C600A32B14 /* BlockDescriptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE6302D5998C400A32B14 /* BlockDescriptionTests.m */; };
-		5FB1F2B52D4C8384007F6D70 /* realized_class_tracking.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FB1F2B42D4C8384007F6D70 /* realized_class_tracking.h */; };
-		5FB1F2B62D4C8384007F6D70 /* realized_class_tracking.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FB1F2B42D4C8384007F6D70 /* realized_class_tracking.h */; };
 		5FBAC04F2D4FB81600AF19D8 /* sim_launching.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FBAC04B2D4FB81600AF19D8 /* sim_launching.m */; };
 		5FBAC0502D4FB81600AF19D8 /* tmpfs_overlay.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FBAC04D2D4FB81600AF19D8 /* tmpfs_overlay.m */; };
 		5FBAC0512D4FB81600AF19D8 /* sim_launching.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FBAC04A2D4FB81600AF19D8 /* sim_launching.h */; };
@@ -204,7 +202,6 @@
 		5F9EE62A2D597BAC00A32B14 /* CoreSymbolicationTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CoreSymbolicationTests.m; sourceTree = "<group>"; };
 		5F9EE6302D5998C400A32B14 /* BlockDescriptionTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BlockDescriptionTests.m; sourceTree = "<group>"; };
 		5FAF157A2C7E4CA100E10412 /* libobjsee.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = libobjsee.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		5FB1F2B42D4C8384007F6D70 /* realized_class_tracking.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = realized_class_tracking.h; sourceTree = "<group>"; };
 		5FBAC04A2D4FB81600AF19D8 /* sim_launching.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sim_launching.h; sourceTree = "<group>"; };
 		5FBAC04B2D4FB81600AF19D8 /* sim_launching.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = sim_launching.m; sourceTree = "<group>"; };
 		5FBAC04C2D4FB81600AF19D8 /* tmpfs_overlay.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tmpfs_overlay.h; sourceTree = "<group>"; };
@@ -399,7 +396,6 @@
 				5F9EE5AA2D5729E600A32B14 /* objc_arg_description.c */,
 				5F9EE5AD2D5734E300A32B14 /* arg_description.h */,
 				5F9EE5B02D5734F300A32B14 /* arg_description.c */,
-				5FB1F2B42D4C8384007F6D70 /* realized_class_tracking.h */,
 			);
 			path = arguments;
 			sourceTree = "<group>";
@@ -576,7 +572,6 @@
 				5FCA29C32CFC497300D7BB08 /* event_handler.h in Headers */,
 				5FCA29C52CFC497300D7BB08 /* transport.h in Headers */,
 				5FCA2A3F2CFD910700D7BB08 /* config_decode.h in Headers */,
-				5FB1F2B52D4C8384007F6D70 /* realized_class_tracking.h in Headers */,
 				5FC397522F0B361C00394C3A /* logging.h in Headers */,
 				5FCA2A402CFD910700D7BB08 /* config_encode.h in Headers */,
 			);
@@ -606,7 +601,6 @@
 				5F8BED4E2D3AF14E00D52DC6 /* app_launching.h in Headers */,
 				5F9EE5AF2D5734F100A32B14 /* arg_description.h in Headers */,
 				5FF45BD92D333EBF0073F42E /* encoding_description.h in Headers */,
-				5FB1F2B62D4C8384007F6D70 /* realized_class_tracking.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

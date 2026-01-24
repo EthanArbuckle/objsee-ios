@@ -9,6 +9,7 @@
 #define objc_internal_h
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <objc/runtime.h>
 
 #define _OBJC_TAG_MASK (1UL<<63)
 #define _OBJC_TAG_INDEX_SHIFT 0
@@ -30,5 +31,45 @@ static inline bool _objc_isTaggedPointer(const void * _Nullable ptr) {
     return false;
 }
 
+// From https://github.com/apple-oss-distributions/objc4/blob/fb265098298302243cd7eeaa1f63f0ba7786dd9a/runtime/objc-runtime-new.h#L76
+#define RW_REALIZED           (1<<31)
+#if defined(__arm__)
+#define FAST_DATA_MASK        0xfffffffcUL
+#define CLASS_BITS_OFFSET     16
+#elif defined(__aarch64__)
+#define FAST_DATA_MASK        0x00007ffffffffff8UL
+#define CLASS_BITS_OFFSET     32
+#endif
+
+/**
+ * @brief Checks if a class is realized
+ * @param cls The class to check
+ * @return true if the class is realized
+ */
+__attribute__((always_inline))
+static inline bool is_class_realized(Class _Nonnull cls) {
+    if (!cls) {
+        return false;
+    }
+    
+    vm_address_t bits_ptr = (vm_address_t)cls + CLASS_BITS_OFFSET;
+    uintptr_t bits_value = 0;
+    vm_size_t read_size = 0;
+    if (vm_read_overwrite(mach_task_self(), bits_ptr, sizeof(uintptr_t), (vm_address_t)&bits_value, &read_size) != KERN_SUCCESS) {
+        return false;
+    }
+        
+    uintptr_t data_ptr = bits_value & FAST_DATA_MASK;
+    if (data_ptr == 0) {
+        return false;
+    }
+
+    uint32_t flags = 0;
+    if (vm_read_overwrite(mach_task_self(), (vm_address_t)data_ptr, sizeof(uint32_t), (vm_address_t)&flags, &read_size) != KERN_SUCCESS) {
+        return false;
+    }
+    
+    return (flags & RW_REALIZED) != 0;
+}
 
 #endif /* objc_internal_h */

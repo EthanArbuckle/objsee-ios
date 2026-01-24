@@ -8,6 +8,7 @@
 #ifndef OBJC_ARG_DESCRIPTION_H
 #define OBJC_ARG_DESCRIPTION_H
 
+#include <objc/runtime.h>
 
 /**
  * @brief Lookup the description of an objective-c object at a given address

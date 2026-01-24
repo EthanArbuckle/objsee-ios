@@ -8,10 +8,9 @@
 #include <objc/runtime.h>
 #include <mach/mach.h>
 #include <dlfcn.h>
-#include "realized_class_tracking.h"
 #include "selector_deny_list.h"
 #include "event_handler.h"
-#include "signal_guard.h"
+#include "objc-internal.h"
 #include "arg_capture.h"
 #include "tracer.h"
 #include "rebind.h"

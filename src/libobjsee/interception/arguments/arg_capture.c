@@ -6,7 +6,6 @@
 //
 
 #include <mach/mach.h>
-#include "realized_class_tracking.h"
 #include "objc_arg_description.h"
 #include "tracer_internal.h"
 #include "arg_description.h"
