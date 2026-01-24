@@ -33,7 +33,6 @@ typedef struct {
     pthread_t transport_thread;
     
     tracer_transport_type_t type;
-    pthread_mutex_t write_lock;
 } transport_context_t;
 
 tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t *config);

@@ -207,16 +207,8 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     ctx->type = tracer->config.transport;
     ctx->fd = -1;
     
-    if (pthread_mutex_init(&ctx->write_lock, NULL) != 0) {
-        objsee_log("Failed to create write lock");
-        free(ctx);
-        tracer->transport_context = NULL;
-        return TRACER_ERROR_INITIALIZATION;
-    }
-    
     if (pthread_mutex_init(&ctx->queue.lock, NULL) != 0) {
         objsee_log("Failed to create queue.lock");
-        pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
         tracer->transport_context = NULL;
         return TRACER_ERROR_INITIALIZATION;
@@ -225,7 +217,6 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
     if (pthread_cond_init(&ctx->queue.not_empty, NULL) != 0) {
         objsee_log("Failed to create queue.not_empty");
         pthread_mutex_destroy(&ctx->queue.lock);
-        pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
         tracer->transport_context = NULL;
         return TRACER_ERROR_INITIALIZATION;
@@ -235,7 +226,6 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
         objsee_log("Failed to create queue.not_full");
         pthread_cond_destroy(&ctx->queue.not_empty);
         pthread_mutex_destroy(&ctx->queue.lock);
-        pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
         tracer->transport_context = NULL;
         return TRACER_ERROR_INITIALIZATION;
@@ -247,7 +237,6 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
         pthread_cond_destroy(&ctx->queue.not_full);
         pthread_cond_destroy(&ctx->queue.not_empty);
         pthread_mutex_destroy(&ctx->queue.lock);
-        pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
         tracer->transport_context = NULL;
         return TRACER_ERROR_MEMORY;
@@ -261,7 +250,6 @@ tracer_result_t transport_init(tracer_t *tracer, const tracer_transport_config_t
         pthread_cond_destroy(&ctx->queue.not_full);
         pthread_cond_destroy(&ctx->queue.not_empty);
         pthread_mutex_destroy(&ctx->queue.lock);
-        pthread_mutex_destroy(&ctx->write_lock);
         free(ctx);
          tracer->transport_context = NULL;
          return TRACER_ERROR_INITIALIZATION;
@@ -312,7 +300,6 @@ tracer_result_t transport_send(tracer_t *tracer, const void *data, size_t length
         return TRACER_ERROR_INITIALIZATION;
     }
     
-    pthread_mutex_lock(&ctx->write_lock);
     tracer_result_t result = TRACER_SUCCESS;
     
     switch (ctx->type) {
@@ -321,7 +308,6 @@ tracer_result_t transport_send(tracer_t *tracer, const void *data, size_t length
             char *data_copy = malloc(length);
             if (data_copy == NULL) {
                 
-                pthread_mutex_unlock(&ctx->write_lock);
                 tracer_set_error(tracer, "Failed to allocate memory");
                 return TRACER_ERROR_MEMORY;
             }
@@ -336,7 +322,6 @@ tracer_result_t transport_send(tracer_t *tracer, const void *data, size_t length
                 int rc = pthread_cond_timedwait(&ctx->queue.not_full, &ctx->queue.lock, &timeout);
                 if (rc == ETIMEDOUT) {
                     pthread_mutex_unlock(&ctx->queue.lock);
-                    pthread_mutex_unlock(&ctx->write_lock);
                     free(data_copy);
                     return TRACER_ERROR_TIMEOUT;
                 }
@@ -368,6 +353,5 @@ tracer_result_t transport_send(tracer_t *tracer, const void *data, size_t length
         }
     }
     
-    pthread_mutex_unlock(&ctx->write_lock);
     return result;
 }

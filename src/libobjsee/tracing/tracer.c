@@ -331,7 +331,6 @@ tracer_result_t tracer_cleanup(tracer_t *tracer) {
     
     if (tracer->transport_context) {
         transport_context_t *transport_ctx = tracer->transport_context;
-        pthread_mutex_destroy(&transport_ctx->write_lock);
         if (transport_ctx->fd >= 0) {
             close(transport_ctx->fd);
             transport_ctx->fd = -1;
