@@ -8,6 +8,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 #import <Foundation/Foundation.h>
 
+// Enable callgraph sampling when a crash occurs (may be a lot of output)
+#define SAMPLE_CALLGRAPHS 0
+
 #if !defined(__arm64__)
 
 #warning "crash_handler.m is only supported on arm64 architecture."
@@ -26,7 +29,10 @@ bool setup_exception_handler_on_process(pid_t traced_app_pid) {
 #include <dlfcn.h>
 #include "mach_excServer.h"
 #include "symbolication.h"
+
+#if SAMPLE_CALLGRAPHS
 #include "highlight.h"
+#endif
 
 /*
  When tracing an app using the cli tool, and the app crashes, the following details are collected:
@@ -188,6 +194,7 @@ static void print_thread_state(const arm_thread_state64_t *state, int failed_reg
     print_memory_peek(g_state.traced_app_task, state->__pc);
 }
 
+#if SAMPLE_CALLGRAPHS
 
 NSString *take_sample(task_t task) {
     // sampler = [[VMUSampler alloc] initWithPID:0 orTask:task options:2];
@@ -232,6 +239,8 @@ NSString *take_sample(task_t task) {
     ((void (*)(id, SEL))objc_msgSend)(sampler, NSSelectorFromString(@"release"));
     return string;
 }
+
+#endif // SAMPLE_CALLGRAPHS
 
 static void _g_task_start_peeking(task_t task) {
     static dispatch_once_t onceToken;
@@ -405,6 +414,7 @@ kern_return_t catch_mach_exception_raise_state(mach_port_t exception_port, excep
     
     _g_task_start_peeking(g_state.traced_app_task);
 
+#if SAMPLE_CALLGRAPHS
     NSString *sampleCallGraphs = take_sample(g_state.traced_app_task);
     char *hl = highlight_line(sampleCallGraphs.UTF8String, NULL, 0);
     fflush(stdout);
@@ -415,6 +425,7 @@ kern_return_t catch_mach_exception_raise_state(mach_port_t exception_port, excep
     else {
         printf("%s\n", sampleCallGraphs.UTF8String);
     }
+#endif // SAMPLE_CALLGRAPHS
 
     const signal_info_t *signal_info = get_signal_info(exception, code);
     if (signal_info) {
