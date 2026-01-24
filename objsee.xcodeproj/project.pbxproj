@@ -23,6 +23,7 @@
 		5F8BED4A2D3AEF9D00D52DC6 /* cli_args.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F8BED472D3AEF9D00D52DC6 /* cli_args.h */; };
 		5F8BED4C2D3AF14400D52DC6 /* app_launching.m in Sources */ = {isa = PBXBuildFile; fileRef = 5F8BED4B2D3AF14400D52DC6 /* app_launching.m */; };
 		5F8BED4E2D3AF14E00D52DC6 /* app_launching.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F8BED4D2D3AF14E00D52DC6 /* app_launching.h */; };
+		5F9477B22F2590B500CAEC6C /* tsd.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F9477B12F2590B500CAEC6C /* tsd.h */; };
 		5F9EE5A82D5729E000A32B14 /* objc_arg_description.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F9EE5A72D5729D800A32B14 /* objc_arg_description.h */; };
 		5F9EE5A92D5729E000A32B14 /* objc_arg_description.h in Headers */ = {isa = PBXBuildFile; fileRef = 5F9EE5A72D5729D800A32B14 /* objc_arg_description.h */; };
 		5F9EE5AB2D5729E700A32B14 /* objc_arg_description.c in Sources */ = {isa = PBXBuildFile; fileRef = 5F9EE5AA2D5729E600A32B14 /* objc_arg_description.c */; };
@@ -191,6 +192,7 @@
 		5F8BED482D3AEF9D00D52DC6 /* cli_args.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = cli_args.m; sourceTree = "<group>"; };
 		5F8BED4B2D3AF14400D52DC6 /* app_launching.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = app_launching.m; sourceTree = "<group>"; };
 		5F8BED4D2D3AF14E00D52DC6 /* app_launching.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = app_launching.h; sourceTree = "<group>"; };
+		5F9477B12F2590B500CAEC6C /* tsd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tsd.h; sourceTree = "<group>"; };
 		5F9EE5A72D5729D800A32B14 /* objc_arg_description.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = objc_arg_description.h; sourceTree = "<group>"; };
 		5F9EE5AA2D5729E600A32B14 /* objc_arg_description.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = objc_arg_description.c; sourceTree = "<group>"; };
 		5F9EE5AD2D5734E300A32B14 /* arg_description.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = arg_description.h; sourceTree = "<group>"; };
@@ -432,6 +434,7 @@
 			children = (
 				5FCA29CB2CFC4BC300D7BB08 /* tracer.h */,
 				5F7084942D5E2C7300329B4E /* objc-internal.h */,
+				5F9477B12F2590B500CAEC6C /* tsd.h */,
 				5FCA29CC2CFC4BC300D7BB08 /* tracer.c */,
 				5FCA29CD2CFC4BC300D7BB08 /* tracer_core.c */,
 				5FCA29CE2CFC4BC300D7BB08 /* tracer_internal.h */,
@@ -557,6 +560,7 @@
 				5FCA29B52CFC496900D7BB08 /* msgSend_hook.h in Headers */,
 				5FCA29B62CFC496900D7BB08 /* rebind.h in Headers */,
 				5FCA29D02CFC4BC300D7BB08 /* tracer.h in Headers */,
+				5F9477B22F2590B500CAEC6C /* tsd.h in Headers */,
 				5FBAC0582D4FBA1300AF19D8 /* arg_capture.h in Headers */,
 				5FCA29D12CFC4BC300D7BB08 /* tracer_internal.h in Headers */,
 				5FCA29B72CFC496900D7BB08 /* selector_deny_list.h in Headers */,

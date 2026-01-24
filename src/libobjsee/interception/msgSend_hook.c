@@ -14,6 +14,7 @@
 #include "arg_capture.h"
 #include "tracer.h"
 #include "rebind.h"
+#include "tsd.h"
 
 #define LIKELY(x)   __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
@@ -21,15 +22,13 @@
 extern void new_objc_msgSend(void);
 
 void *original_objc_msgSend = NULL;
-static pthread_key_t interception_stacktrace_thread_key;
 // TODO: remove
 static tracer_t *g_tracer_ctx = NULL;
 
 __attribute__((aligned(16), always_inline, hot))
 static inline struct tracer_thread_context_t *get_thread_context(void) {
-    
-    struct tracer_thread_context_t *ctx = (struct tracer_thread_context_t *)pthread_getspecific(interception_stacktrace_thread_key);
-    if (__builtin_expect(ctx == NULL, 0)) {
+    struct tracer_thread_context_t *ctx = (struct tracer_thread_context_t *)_get_tracer_thread_context();
+    if (UNLIKELY(ctx == NULL)) {
         ctx = (struct tracer_thread_context_t *)calloc(1, sizeof(struct tracer_thread_context_t));
         if (UNLIKELY(ctx == NULL)) {
             tracer_set_error(g_tracer_ctx, "get_thread_context: Failed to allocate thread context");
@@ -39,7 +38,6 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
         ctx->stack_depth = -1;
         ctx->trace_depth = 0;
         ctx->capture_arguments = g_tracer_ctx->config.format.args != TRACER_ARG_FORMAT_NONE;
-        
         ctx->stack_base = NULL;
         if (ctx->capture_arguments) {
             ctx->stack_base = pthread_get_stackaddr_np(pthread_self());
@@ -49,7 +47,7 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
         pthread_threadid_np(pthread_self(), &thread_id);
         ctx->thread_id = (uint16_t)(thread_id ^ (thread_id >> 32));
         
-        pthread_setspecific(interception_stacktrace_thread_key, ctx);
+        set_tracer_thread_context((void *)ctx);
     }
     
     return ctx;
@@ -224,11 +222,11 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
 
 __attribute__((aligned(16), always_inline, hot))
 uintptr_t post_objc_msgSend_callback(void) {
-    struct tracer_thread_context_t *ctx = (struct tracer_thread_context_t *)pthread_getspecific(interception_stacktrace_thread_key);
+    struct tracer_thread_context_t *ctx = get_thread_context();
     size_t current_depth = ctx->stack_depth;
     
     ctx->stack_depth -= 1;
-    if (ctx->trace_depth > 0) {
+    if (LIKELY(ctx->trace_depth > 0)) {
         ctx->trace_depth -= 1;
     }
     
@@ -248,7 +246,6 @@ void *get_original_objc_msgSend(void) {
 }
 
 tracer_result_t init_message_interception(tracer_t *tracer) {
-
     if (tracer == NULL) {
         tracer_set_error(g_tracer_ctx, "init_message_interception: Invalid tracer context");
         return TRACER_ERROR_INVALID_ARGUMENT;
@@ -260,11 +257,6 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
     }
     
     g_tracer_ctx = tracer;
-    
-    if (pthread_key_create(&interception_stacktrace_thread_key, NULL) != 0) {
-        tracer_set_error(g_tracer_ctx, "Failed to create thread-local storage");
-        return TRACER_ERROR_MEMORY;
-    }
     
     original_objc_msgSend = get_original_objc_msgSend();
     if (original_objc_msgSend == NULL) {
