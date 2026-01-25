@@ -149,7 +149,7 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
     }
     
-    if (UNLIKELY(ctx->last_sel_cache.sel == _cmd)) {
+    if (UNLIKELY(ctx->last_sel_cache.sel == _cmd && ctx->last_sel_cache.name != NULL)) {
         frame->selector_name = ctx->last_sel_cache.name;
     }
     else {
