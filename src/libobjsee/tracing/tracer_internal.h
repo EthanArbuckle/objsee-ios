@@ -87,15 +87,11 @@ typedef struct tracer_context_t {
     tracer_config_t config;
     pthread_rwlock_t filter_lock;
     void * _Nullable transport_context;
-    pthread_mutex_t transport_lock;
-    pthread_key_t thread_key;
     char last_error[256];
     pthread_mutex_t error_lock;
 } tracer_context_t;
 
 tracer_result_t tracer_context_init(tracer_t * _Nonnull tracer);
-tracer_thread_context_t * _Nullable tracer_get_thread_context(tracer_t * _Nonnull tracer);
-
 
 bool tracer_should_trace(tracer_t * _Nonnull tracer, tracer_thread_context_frame_t * _Nonnull frame);
 void tracer_set_error(tracer_t * _Nonnull tracer, const char * _Nonnull format, ...);

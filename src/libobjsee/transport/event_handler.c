@@ -115,13 +115,7 @@ void tracer_handle_event(tracer_t *tracer, tracer_event_t *event) {
     if (tracer == NULL || event == NULL) {
         return;
     }
-        
-    tracer_thread_context_t *thread_ctx = tracer_get_thread_context(tracer);
-    if (thread_ctx == NULL) {
-        tracer_set_error(tracer, "Failed to get thread context");
-        return;
-    }
-    
+
     if (tracer->config.transport == TRACER_TRANSPORT_CUSTOM && tracer->config.event_handler) {
         tracer->config.event_handler(event, tracer->config.event_handler_context);
         return;

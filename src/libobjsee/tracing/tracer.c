@@ -342,9 +342,7 @@ tracer_result_t tracer_cleanup(tracer_t *tracer) {
     cleanup_event_handler();
     
     pthread_rwlock_destroy(&tracer->filter_lock);
-    pthread_mutex_destroy(&tracer->transport_lock);
     pthread_mutex_destroy(&tracer->error_lock);
-    pthread_key_delete(tracer->thread_key);
     
     free(tracer);
     tracer = NULL;

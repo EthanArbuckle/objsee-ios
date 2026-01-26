@@ -38,56 +38,14 @@ tracer_result_t tracer_context_init(tracer_t *tracer) {
         return TRACER_ERROR_INITIALIZATION;
     }
     
-    if (pthread_mutex_init(&internal_ctx->transport_lock, NULL) != 0) {
-        tracer_set_error(tracer, "Failed to initialize transport lock");
-        pthread_rwlock_destroy(&internal_ctx->filter_lock);
-        return TRACER_ERROR_INITIALIZATION;
-    }
-    
     if (pthread_mutex_init(&internal_ctx->error_lock, NULL) != 0) {
         tracer_set_error(tracer, "Failed to initialize error lock");
-        pthread_mutex_destroy(&internal_ctx->transport_lock);
-        pthread_rwlock_destroy(&internal_ctx->filter_lock);
-        return TRACER_ERROR_INITIALIZATION;
-    }
-    
-    if (pthread_key_create(&internal_ctx->thread_key, tracer_thread_destructor) != 0) {
-        tracer_set_error(tracer, "Failed to create thread key");
-        pthread_mutex_destroy(&internal_ctx->error_lock);
-        pthread_mutex_destroy(&internal_ctx->transport_lock);
         pthread_rwlock_destroy(&internal_ctx->filter_lock);
         return TRACER_ERROR_INITIALIZATION;
     }
         
     internal_ctx->initialized = true;
     return TRACER_SUCCESS;
-}
-
-tracer_thread_context_t *tracer_get_thread_context(tracer_t *tracer) {
-    if (tracer == NULL ) {
-        return NULL;
-    }
-    
-    if (!tracer->initialized) {
-        tracer_set_error(tracer, "Cannot get thread context: tracer not initialized");
-        return NULL;
-    }
-    
-    tracer_thread_context_t *ctx = pthread_getspecific(tracer->thread_key);
-    if (ctx == NULL) {
-        ctx = calloc(1, sizeof(tracer_thread_context_t));
-        if (ctx == NULL) {
-            tracer_set_error(tracer, "Failed to allocate thread context");
-            return NULL;
-        }
-        
-        uint64_t thread_id;
-        pthread_threadid_np(NULL, &thread_id);
-        ctx->thread_id = (uint16_t)(thread_id ^ (thread_id >> 32));
-        
-        pthread_setspecific(tracer->thread_key, ctx);
-    }
-    return ctx;
 }
 
 void tracer_set_error(tracer_t *tracer, const char *format, ...) {
