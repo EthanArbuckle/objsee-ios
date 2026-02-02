@@ -165,7 +165,8 @@ static kern_return_t _description_for_id(const tracer_argument_t *arg, tracer_ar
             break;
         }
             
-        case TRACER_ARG_FORMAT_DESCRIPTIVE: {
+        case TRACER_ARG_FORMAT_DESCRIPTIVE:
+        case TRACER_ARG_FORMAT_DESCRIPTIVE_COMPACT: {
             
             // Handle blocks
             if (strcmp(arg->type_encoding, "@?") == 0) {
