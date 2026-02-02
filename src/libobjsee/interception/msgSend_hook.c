@@ -127,12 +127,14 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     frame->_cmd = _cmd;
     frame->image_path = NULL;
     
+    const char *selector_name = sel_getName(_cmd);
     Class self_class = object_getClass(self);
     if (UNLIKELY(self_class == NULL || (uintptr_t)self_class < 0x10000 || !is_class_realized(self_class))) {
         return false;
     }
 
     // Resolve and cache class name, selector name, and whether the selector is a class method.
+    frame->selector_name = selector_name;
     // These details will be needed by filters later on and could have interest by an API user.
     if (UNLIKELY(ctx->last_class_cache.cls == self_class)) {
         frame->self_class = self_class;
@@ -149,14 +151,6 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
     }
     
-    if (UNLIKELY(ctx->last_sel_cache.sel == _cmd && ctx->last_sel_cache.name != NULL)) {
-        frame->selector_name = ctx->last_sel_cache.name;
-    }
-    else {
-        const char *sel_name = sel_getName(_cmd);
-        ctx->last_sel_cache.sel = _cmd;
-        ctx->last_sel_cache.name = sel_name;
-        frame->selector_name = ctx->last_sel_cache.name;
     }
     
     if (!tracer_should_trace(g_tracer_ctx, frame)) {

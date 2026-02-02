@@ -9,18 +9,11 @@
 #include "tracer_internal.h"
 #include "logging.h"
 
-typedef struct {
-    Class isa;
-} _nsobject;
-
-extern uint64_t objc_debug_isa_magic_mask;
-extern uint64_t objc_debug_isa_magic_value;
-
-static void tracer_thread_destructor(void *ctx) {
-    if (ctx) {
-        free(ctx);
-    }
-}
+typedef enum {
+    NOT_NEEDED,
+    NEEDED_FOR_INCLUDE,
+    NEEDED_FOR_EXCLUDE
+} image_path_needed_t;
 
 tracer_result_t tracer_context_init(tracer_t *tracer) {
     if (tracer == NULL) {
@@ -60,7 +53,6 @@ void tracer_set_error(tracer_t *tracer, const char *format, ...) {
     vsnprintf(tracer->last_error, sizeof(tracer->last_error), format, args);
     va_end(args);
     
-    printf("Error: %s\n", tracer->last_error);
     objsee_log("Error: %s", tracer->last_error);
     
     pthread_mutex_unlock(&tracer->error_lock);
@@ -108,14 +100,12 @@ static bool match_wildcard(const char *pattern, const char *str) {
     return !*pat_ptr;
 }
 
-typedef enum {
-    NOT_NEEDED,
-    NEEDED_FOR_INCLUDE,
-    NEEDED_FOR_EXCLUDE
-} image_path_needed_t;
-
-bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame) {
-    if (tracer == NULL || frame == NULL || frame->self_class_name == NULL || frame->selector_name == NULL) {
+bool tracer_evaluate_trace_policy(tracer_t *tracer, tracer_thread_context_frame_t *frame) {
+    if (tracer == NULL || tracer->running == false) {
+        return false;
+    }
+    
+    if (frame == NULL || frame->self_class_name == NULL || frame->selector_name == NULL) {
         return false;
     }
         
@@ -261,38 +251,3 @@ bool tracer_should_trace(tracer_t *tracer, tracer_thread_context_frame_t *frame)
     return should_trace;
 }
 
-__attribute__((aligned(16), always_inline, hot)) bool is_valid_pointer(void *ptr) {
-    uintptr_t addr = (uintptr_t)ptr;
-#if defined(__LP64__)
-    const uintptr_t min_addr = 0x4000;
-    const uintptr_t max_addr = 0x800000000000;
-    const uintptr_t tag_mask = 0xFULL << 60;
-    const uintptr_t high_bit = 1ULL << 63;
-    const uintptr_t objc_tag_bit = 1ULL << 60;
-#else
-    const uintptr_t min_addr = 0x4000;
-    const uintptr_t max_addr = UINTPTR_MAX;
-#endif
-
-    if (addr < min_addr || addr > max_addr || (addr & (sizeof(void *) - 1)) != 0) {
-        return false;
-    }
-
-#if defined(__LP64__)
-    if ((addr & high_bit) != 0 || (addr & objc_tag_bit) != 0) {
-        return true;
-    }
-
-    uint64_t isa = (uint64_t)((_nsobject *)ptr)->isa;
-    if ((isa & objc_debug_isa_magic_mask) != objc_debug_isa_magic_value) {
-        return false;
-    }
-
-    uintptr_t untagged = addr & ~tag_mask;
-    if (untagged < 0x100000000 || untagged > 0x2000000000 || (untagged & 0x7) != 0) {
-        return false;
-    }
-#endif
-
-    return true;
-}

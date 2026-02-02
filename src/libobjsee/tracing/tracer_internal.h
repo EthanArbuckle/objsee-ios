@@ -38,8 +38,6 @@ struct BlockLiteral {
     struct BlockDescriptor * _Nonnull descriptor;
 };
 
-bool is_valid_pointer(void * _Nonnull ptr);
-
 typedef struct tracer_thread_context_frame_t {
     SEL _Nonnull _cmd;
     const char * _Nonnull selector_name;
