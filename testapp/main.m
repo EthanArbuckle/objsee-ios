@@ -13,10 +13,14 @@
 #include <os/log.h>
 
 static tracer_config_t config;
+static tracer_event_handler_t tracer_event_handler;
 
-void tracer_event_handler(tracer_t *tracer, tracer_event_t *event, void *context) {
-    // Handle the event here
-    NSLog(@"Received event: %s", event->class_name);
+static void tracer_event_handler(const tracer_event_t *event, void *context) {
+    assert(event != NULL);
+    
+    if (event->formatted_output) {
+        printf("%s\n", event->formatted_output);
+    }
 }
 
 void init_tracing(void) {
