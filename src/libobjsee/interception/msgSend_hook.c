@@ -80,11 +80,6 @@ void free_event_arguments(tracer_event_t *event) {
                 arg->type_encoding = NULL;
             }
             
-            if (LIKELY(arg->objc_class_name != NULL)) {
-                free((void *)arg->objc_class_name);
-                arg->objc_class_name = NULL;
-            }
-            
             if (LIKELY(arg->description != NULL)) {
                 free((void *)arg->description);
                 arg->description = NULL;
@@ -99,16 +94,6 @@ void free_event_arguments(tracer_event_t *event) {
         free(event->arguments);
         event->arguments = NULL;
     }
-
-    event->argument_count = 0;
-    event->formatted_output = NULL;
-    event->class_name = NULL;
-    event->method_name = NULL;
-    event->image_path = NULL;
-    event->thread_id = 0;
-    event->trace_depth = 0;
-    event->real_depth = 0;
-    event->is_class_method = false;
 }
 
 static void populate_event_caller_info(struct tracer_thread_context_t *ctx, int stack_depth_on_entry, tracer_event_t *event) {

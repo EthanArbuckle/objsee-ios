@@ -113,7 +113,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
                 return;
             }
 
-            event_arg->objc_class_name = strdup(class_name);
+            event_arg->objc_class_name = class_name;
             event_arg->objc_class = object_class;
             
             char description_buf[1024];
