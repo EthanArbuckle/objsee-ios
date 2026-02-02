@@ -20,7 +20,6 @@ bool setup_exception_handler_on_process(pid_t traced_app_pid) {
 
 #else
 
-#include <capstone/capstone.h>
 #include <objc/runtime.h>
 #include <objc/message.h>
 #include <mach/mach.h>
@@ -32,6 +31,12 @@ bool setup_exception_handler_on_process(pid_t traced_app_pid) {
 
 #if SAMPLE_CALLGRAPHS
 #include "highlight.h"
+#endif
+
+#if HAS_CAPSTONE
+#include <capstone/capstone.h>
+#else
+#define csh void*
 #endif
 
 /*
@@ -301,6 +306,7 @@ static void print_disassembly(uint64_t pc_address) {
         }
     }
 
+#if HAS_CAPSTONE
     cs_insn *insn;
     size_t count = cs_disasm(g_state.cs_handle, code_buffer, size_read, start_address, 0, &insn);
     if (count > 0) {
@@ -333,6 +339,7 @@ static void print_disassembly(uint64_t pc_address) {
         }
         cs_free(insn, count);
     }
+#endif
 }
 
 static void print_backtrace(const arm_thread_state64_t *thread_state) {
@@ -532,12 +539,13 @@ kern_return_t setup_exception_handler_on_process(pid_t traced_app_pid) {
         printf("%s: Failed to create symbolicator for task 0x%x\n", __func__, g_state.traced_app_task);
         return KERN_FAILURE;
     }
-    
+#if HAS_CAPSTONE
     if (cs_open(CS_ARCH_ARM64, CS_MODE_ARM, &g_state.cs_handle) != CS_ERR_OK) {
         printf("%s: Failed to initialize Capstone disassembler\n", __func__);
         return KERN_FAILURE;
     }
     cs_option(g_state.cs_handle, CS_OPT_DETAIL, CS_OPT_ON);
+#endif
 
     mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &g_state.exception_port);
     mach_port_insert_right(mach_task_self(), g_state.exception_port, g_state.exception_port, MACH_MSG_TYPE_MAKE_SEND);

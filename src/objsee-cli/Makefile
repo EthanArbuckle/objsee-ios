@@ -18,7 +18,7 @@ objsee_FILES += ./exception_handling/mach_excServer.c
 objsee_LDFLAGS = -L../../dependencies/libs/ -lncursesw-ios -lcapstone-ios
 endif
 
-objsee_CFLAGS := -fobjc-arc $(INCLUDE_FLAGS) -I./../../dependencies/include -I./../../dependencies/kat -I./../../dependencies/yyjson/src -DBUILDING_CLI_TOOL -Wno-unused-but-set-variable -Wno-deprecated-declarations -Wno-error=#warnings
+objsee_CFLAGS := -fobjc-arc $(INCLUDE_FLAGS) -I./../../dependencies/include -I./../../dependencies/kat -I./../../dependencies/yyjson/src -DBUILDING_CLI_TOOL -DHAS_CAPSTONE -Wno-unused-but-set-variable -Wno-deprecated-declarations -Wno-error=#warnings
 armv7_CFLAGS := -femulated-tls
 
 include $(THEOS_MAKE_PATH)/tool.mk
