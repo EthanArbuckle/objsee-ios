@@ -115,11 +115,6 @@ void tracer_handle_event(tracer_t *tracer, tracer_event_t *event) {
     if (tracer == NULL || event == NULL) {
         return;
     }
-
-    if (tracer->config.transport == TRACER_TRANSPORT_CUSTOM && tracer->config.event_handler) {
-        tracer->config.event_handler(event, tracer->config.event_handler_context);
-        return;
-    }
     
     tracer_format_options_t format = tracer->config.format;
     if (format.include_event_json && format.include_formatted_trace && !format.output_as_json) {
@@ -127,61 +122,73 @@ void tracer_handle_event(tracer_t *tracer, tracer_event_t *event) {
         tracer_set_error(tracer, "Cannot include both formatted trace and event data without json output format");
         format.include_formatted_trace = false;
     }
-
-    const char *event_output = NULL;
+    
     if (!format.include_event_json && format.include_formatted_trace && !format.output_as_json) {
         // Json is disabled, formatted trace is enabled.
         // Build the string then write it directly to the transport
-        event_output = build_formatted_event_str(event, format);
-        if (event_output == NULL) {
+        const char *formatted_str = build_formatted_event_str(event, format);
+        if (formatted_str == NULL) {
             tracer_set_error(tracer, "Failed to build formatted string for an event");
             return;
         }
-        event->formatted_output = strdup(event_output);
+        event->formatted_output = formatted_str;
     }
     else if (format.output_as_json) {
         // Json is enabled. Build the json string for the event, then write it to the transport.
         // It may include a formatted string field depending on format options
-        WHILE_IGNORING_SIGNALS({
-            event_output = build_json_event_str(tracer, event);
-        });
-
-        if (event_output == NULL) {
+        const char *json_str = build_json_event_str(tracer, event);
+        if (json_str == NULL) {
             tracer_set_error(tracer, "Failed to build json string for an event");
             return;
         }
+        
+        event->json = json_str;
     }
 
-    if (event_output == NULL) {
+    if (event->formatted_output == NULL && event->json == NULL) {
         tracer_set_error(tracer, "Failed to build event output. No data to send to transport");
         return;
     }
-
-    size_t output_len = strlen(event_output);
-    bool needs_newline = (output_len > 0 && event_output[output_len - 1] != '\n');
-    size_t send_len = output_len + (needs_newline ? 1 : 0);
-
-    char *buffer = NULL;
-    if (send_len < EVENT_BUFFER_SIZE) {
-        buffer = get_buffer_from_pool();
-    }
-
-    if (buffer != NULL) {
-        memcpy(buffer, event_output, output_len);
-        if (needs_newline) {
-            buffer[output_len] = '\n';
-        }
-        buffer[send_len] = '\0';
-        free((void *)event_output);
-        transport_send(tracer, buffer, send_len);
-        return_buffer_to_pool(buffer);
+    
+    if (tracer->config.transport == TRACER_TRANSPORT_CUSTOM && tracer->config.event_handler) {
+        tracer->config.event_handler(event, tracer->config.event_handler_context);
     }
     else {
-        transport_send(tracer, event_output, output_len);
-        if (needs_newline) {
-            transport_send(tracer, "\n", 1);
+        const char *event_output = (format.output_as_json) ? event->json : event->formatted_output;
+        size_t output_len = strlen(event_output);
+        bool needs_newline = (output_len > 0 && event_output[output_len - 1] != '\n');
+        size_t send_len = output_len + (needs_newline ? 1 : 0);
+        
+        char *buffer = NULL;
+        if (send_len < EVENT_BUFFER_SIZE) {
+            buffer = get_buffer_from_pool();
         }
-        free((void *)event_output);
+        
+        if (buffer != NULL) {
+            memcpy(buffer, event_output, output_len);
+            if (needs_newline) {
+                buffer[output_len] = '\n';
+            }
+            buffer[send_len] = '\0';
+            transport_send(tracer, buffer, send_len);
+            return_buffer_to_pool(buffer);
+        }
+        else {
+            transport_send(tracer, event_output, output_len);
+            if (needs_newline) {
+                transport_send(tracer, "\n", 1);
+            }
+        }
+    }
+    
+    if (event->formatted_output != NULL) {
+        free((void *)event->formatted_output);
+        event->formatted_output = NULL;
+    }
+    
+    if (event->json != NULL) {
+        free((void *)event->json);
+        event->json = NULL;
     }
 }
 

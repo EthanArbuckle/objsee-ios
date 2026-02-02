@@ -76,7 +76,7 @@ typedef struct {
     const char *indent_char;
     // The character to use as a separator between indents (ie. |)
     const char *indent_separator_char;
-    // hack
+    // TUI hack
     bool include_newline_in_formatted_trace;
     
 /*
@@ -120,6 +120,7 @@ typedef struct {
 
 typedef struct tracer_event_t {
     const char *formatted_output;
+    const char *json;
     const char *class_name;
     const char *method_name;
     bool is_class_method;
