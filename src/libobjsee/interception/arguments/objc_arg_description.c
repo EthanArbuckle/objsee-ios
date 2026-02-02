@@ -20,20 +20,20 @@ static void *g_imp_cache[1024] = {0};
 static size_t g_imp_cache_count = 0;
 static OSSpinLock g_imp_cache_lock = OS_SPINLOCK_INIT;
 
+// Cache these to avoid repeated lookups
+static SEL sel_description = NULL;
+static SEL sel_UTF8String = NULL;
+static SEL sel_isKindOfClass = NULL;
+static Class class_NSString = NULL;
 
-static SEL description_selector(void) {
-    static SEL descriptionSel = NULL;
-    if (descriptionSel == NULL) {
-        descriptionSel = sel_registerName("description");
-    }
-    return descriptionSel;
+__attribute__((constructor)) static void init(void) {
+    sel_description = sel_registerName("description");
+    sel_UTF8String = sel_registerName("UTF8String");
+    sel_isKindOfClass = sel_registerName("isKindOfClass:");
+    class_NSString = objc_getClass("NSString");
 }
 
 static IMP get_description_imp_for_class(Class cls) {
-    if (cls == NULL) {
-        return NULL;
-    }
-    
     OSSpinLockLock(&g_imp_cache_lock);
     
     for (size_t i = 0; i < g_imp_cache_count; i += 2) {
@@ -44,10 +44,9 @@ static IMP get_description_imp_for_class(Class cls) {
         }
     }
     
-    SEL descriptionSel = description_selector();
     IMP descriptionImp = NULL;
-    if (class_respondsToSelector(cls, descriptionSel)) {
-        descriptionImp = class_getMethodImplementation(cls, descriptionSel);
+    if (class_respondsToSelector(cls, sel_description)) {
+        descriptionImp = class_getMethodImplementation(cls, sel_description);
     }
     
     if (descriptionImp != NULL && g_imp_cache_count < 1022) {
@@ -60,8 +59,53 @@ static IMP get_description_imp_for_class(Class cls) {
     return descriptionImp;
 }
 
-static const char *build_objc_description_for_object(void *address, Class obj_class) {
-    if (address == NULL || obj_class == NULL) {
+static bool is_kind_of_class(id object, Class cls) {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000
+    if (objc_opt_isKindOfClass(object, cls)) {
+        return true;
+    }
+#else
+    if (((bool (*)(id, SEL, Class))orig_objc_msgSend)(object, sel_isKindOfClass, cls)) {
+        return true;
+    }
+#endif
+
+    return false;
+}
+
+static bool should_object_be_skipped(id object) {
+     // Calling -description on these classes will cause a crash
+    /*
+     Thread 2 Crashed:
+     0   libsystem_platform.dylib       0x1e7b83584          _os_unfair_lock_recursive_abort + 36
+     1   libsystem_platform.dylib       0x1e7b82894          _os_unfair_lock_lock_slow + 336
+     2   CoreFoundation                 0x189d396dc          -[CFPrefsSource description] + 76
+     3   libobjsee                      0x1045b5ef4          build_objc_description_for_object + 140
+     4   libobjsee                      0x1045b5c00          lookup_description_for_address + 248
+     5   libobjsee                      0x1045b3ba4          _description_for_id + 924
+     6   libobjsee                      0x1045b3424          description_for_argument + 372
+     7   libobjsee                      0x1045b271c          capture_arguments + 2604
+     8   libobjsee                      0x1045b7ce0          pre_objc_msgSend_callback + 1456
+     9   libobjsee                      0x1045c36f4          new_objc_msgSend + 52
+     */
+    static Class CFPrefsSearchListSource = NULL;
+    static Class CFPrefsSource = NULL;
+
+    if (CFPrefsSearchListSource == NULL) {
+        CFPrefsSearchListSource = objc_getClass("CFPrefsSearchListSource");
+        CFPrefsSource = objc_getClass("CFPrefsSource");
+    }
+    
+    if (is_kind_of_class(object, CFPrefsSearchListSource) || is_kind_of_class(object, CFPrefsSource)) {
+        return true;
+    }
+
+    return false;
+}
+
+static const char *copy_objc_object_description(void *address, Class obj_class) {
+    id object = (id)address;
+    if (should_object_be_skipped(object)) {
         return NULL;
     }
     
@@ -70,29 +114,18 @@ static const char *build_objc_description_for_object(void *address, Class obj_cl
         return NULL;
     }
     
-    id object = (id)address;
-    SEL descriptionSel = description_selector();
-    id descriptionString = ((id (*)(id, SEL))descriptionImp)(object, descriptionSel);
+    id descriptionString = ((id (*)(id, SEL))descriptionImp)(object, sel_description);
     if (descriptionString == NULL) {
         return NULL;
     }
     
-    void *orig_objc_msgSend = get_original_objc_msgSend();
-    if (orig_objc_msgSend == NULL) {
-        return NULL;
-    }
-    
-    const char *utf8String = ((const char *(*)(id, SEL))orig_objc_msgSend)(descriptionString, sel_registerName("UTF8String"));
+    const char *utf8String = ((const char * (*)(id, SEL))original_objc_msgSend)(descriptionString, sel_UTF8String);
     if (utf8String == NULL) {
         return NULL;
     }
     
     // For string types, use objc style quoting (@"string")
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000
-    if (objc_opt_isKindOfClass(object, objc_getClass("NSString"))) {
-#else
-    if (((bool (*)(id, SEL, Class))orig_objc_msgSend)(object, sel_registerName("isKindOfClass:"), objc_getClass("NSString"))) {
-#endif
+    if (is_kind_of_class(object, class_NSString)) {
         size_t original_len = strlen(utf8String);
         const char *newline_pos = strchr(utf8String, '\n');
         size_t content_len = newline_pos ? (newline_pos - utf8String) : original_len;
@@ -132,7 +165,7 @@ const char *lookup_description_for_address(void *address, Class obj_class) {
     }
     OSSpinLockUnlock(&g_description_cache_lock);
 
-    const char *built_desc = build_objc_description_for_object(address, obj_class);
+    const char *built_desc = copy_objc_object_description(address, obj_class);
     if (built_desc == NULL) {
         return NULL;
     }
@@ -156,7 +189,7 @@ const char *lookup_description_for_address(void *address, Class obj_class) {
             strncpy(desc_buffer_copy, built_desc, len);
             desc_buffer_copy[len] = '\0';
 
-            g_description_cache[g_description_cache_count]     = address;
+            g_description_cache[g_description_cache_count] = address;
             g_description_cache[g_description_cache_count + 1] = desc_buffer_copy;
             g_description_cache_count += 2;
 
