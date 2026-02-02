@@ -9,8 +9,8 @@
 #ifndef SELECTOR_DENY_LIST_H
 #define SELECTOR_DENY_LIST_H
 
-
-bool selector_is_denylisted(SEL selector);
+// Returns true if the selector name should not be traced
+bool should_skip_selector_name(const char *selector_name);
 
 #endif /* SELECTOR_DENY_LIST_H */
 

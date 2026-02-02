@@ -14,19 +14,19 @@
 @implementation SelectorDenyListTests
 
 - (void)testNullSelector {
-    bool result = selector_is_denylisted(NULL);
+    bool result = should_skip_selector_name(NULL);
     XCTAssertFalse(result);
 }
 
 - (void)testDotPrefixSelector {
     SEL dotSelector = NSSelectorFromString(@".cxx_destruct");
-    bool result = selector_is_denylisted(dotSelector);
+    bool result = should_skip_selector_name(dotSelector);
     XCTAssertTrue(result);
 }
 
 - (void)testSPrefixSelector {
     SEL sSelector = NSSelectorFromString(@"someMethod");
-    bool result = selector_is_denylisted(sSelector);
+    bool result = should_skip_selector_name(sSelector);
     XCTAssertFalse(result);
 }
 
@@ -49,7 +49,7 @@
     };
 
     for (size_t i = 0; i < sizeof(denylistedSelectors) / sizeof(SEL); i++) {
-        bool result = selector_is_denylisted(denylistedSelectors[i]);
+        bool result = should_skip_selector_name(denylistedSelectors[i]);
         XCTAssertTrue(result, @"Selector %@ should be denylisted", NSStringFromSelector(denylistedSelectors[i]));
     }
 }
@@ -64,18 +64,18 @@
     };
 
     for (size_t i = 0; i < sizeof(allowedSelectors) / sizeof(SEL); i++) {
-        bool result = selector_is_denylisted(allowedSelectors[i]);
+        bool result = should_skip_selector_name(allowedSelectors[i]);
         XCTAssertFalse(result, @"Selector %@ should not be denylisted", NSStringFromSelector(allowedSelectors[i]));
     }
 }
 
 - (void)testBinarySearchEdgeCases {
     SEL firstInList = sel_registerName("isKindOfClass:");
-    bool result = selector_is_denylisted(firstInList);
+    bool result = should_skip_selector_name(firstInList);
     XCTAssertTrue(result);
     
     SEL lastInList = sel_registerName("_isDeallocating");
-    result = selector_is_denylisted(lastInList);
+    result = should_skip_selector_name(lastInList);
     XCTAssertTrue(result);
 }
 
@@ -84,7 +84,7 @@
     for (uint32_t i = 0; i < 1000; i++) {
         snprintf(selectorBuffer, sizeof(selectorBuffer), "test_method_%u", i);
         SEL testSelector = sel_registerName(selectorBuffer);
-        selector_is_denylisted(testSelector);
+        should_skip_selector_name(testSelector);
     }
 }
 

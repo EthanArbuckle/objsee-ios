@@ -57,21 +57,19 @@ static inline bool hash_in_denylist(uint32_t hash) {
 }
 
 __attribute__((aligned(16), hot, always_inline))
-bool selector_is_denylisted(SEL selector) {
-    if (selector == NULL) {
-        return false;
-    }
-    
-    const char *selector_name = sel_getName(selector);
-    if (selector_name == NULL || selector_name[0] == '\0') {
-        return false;
-    }
-    
+bool should_skip_selector_name(const char *selector_name) {
     char first_char = selector_name[0];
-    if (first_char == 's') {
-        return false;
+    if (first_char == '\0') {
+        return true;
     }
-    else if (first_char == '.') {
+    
+    // fastpath check for setters 'set...:'
+    if (first_char == 's' && selector_name[1] == 'e' && selector_name[2] == 't') {
+        return true;
+    }
+
+    
+    if (first_char == '.') {
         return true;
     }
     

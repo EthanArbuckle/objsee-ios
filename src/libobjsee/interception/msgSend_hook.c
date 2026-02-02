@@ -109,6 +109,13 @@ void free_event_arguments(tracer_event_t *event) {
     event->is_class_method = false;
 }
 
+#define PTR_PLAUSIBLE(p) ({            \
+    uintptr_t __p = (uintptr_t)(p);   \
+    (__p > 0x0000000000010000ULL &&   \
+     __p < 0x00007FFFFFFFFFFFULL);    \
+})
+
+
 __attribute__((aligned(16), always_inline, hot))
 bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t lr, void *stack_ptr) {
     struct tracer_thread_context_t *ctx = get_thread_context();
@@ -119,13 +126,18 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         return false;
     }
     
-    if (!self || (uintptr_t)self <= 0x100 || selector_is_denylisted(_cmd)) {
+    if (!PTR_PLAUSIBLE(self) || !PTR_PLAUSIBLE(_cmd)) {
         return false;
     }
     
     const char *selector_name = sel_getName(_cmd);
+    if (selector_name == NULL || should_skip_selector_name(selector_name)) {
+        return false;
+    }
+
     Class self_class = object_getClass(self);
-    if (UNLIKELY(self_class == NULL || (uintptr_t)self_class < 0x10000 || !is_class_realized(self_class))) {
+    bool invalid_or_unrealized = !PTR_PLAUSIBLE(self_class) || !is_class_realized(self_class);
+    if (UNLIKELY(invalid_or_unrealized)) {
         return false;
     }
 
