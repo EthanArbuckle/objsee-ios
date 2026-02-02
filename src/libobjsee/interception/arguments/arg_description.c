@@ -12,6 +12,7 @@
 #include "encoding_description.h"
 #include "tracer_internal.h"
 #include "blocks.h"
+#include "class_name_cache.h"
 
 static kern_return_t _description_for_id(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
 static kern_return_t _description_for_selector(const tracer_argument_t *arg, tracer_argument_format_t fmt, char *out_buf, size_t buf_size);
@@ -339,7 +340,7 @@ static kern_return_t _description_for_class(const tracer_argument_t *arg, tracer
             }
         }
         else {
-            if (snprintf(out_buf, buf_size, "%s", class_getName(cls)) >= buf_size) {
+            if (snprintf(out_buf, buf_size, "%s", class_name_cache_get(cls)) >= buf_size) {
                 return KERN_NO_SPACE;
             }
         }

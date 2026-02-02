@@ -15,6 +15,7 @@
 #include "tracer.h"
 #include "rebind.h"
 #include "tsd.h"
+#include "class_name_cache.h"
 
 #define LIKELY(x)   __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
@@ -140,14 +141,15 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
     }
     else {
-        ctx->last_class_cache.cls = self_class;
-        ctx->last_class_cache.name = class_getName(self_class);
-        ctx->last_class_cache.is_meta = class_isMetaClass(self_class);
+        const char *class_name = class_name_cache_get(self_class);
+        frame->self_class_name = class_name;
 
-        frame->self_class_name = ctx->last_class_cache.name;
-        frame->selector_is_class_method = ctx->last_class_cache.is_meta;
-    }
-    
+        bool class_is_meta = class_isMetaClass(self_class);
+        frame->selector_is_class_method = class_is_meta;
+        
+        ctx->last_class_cache.cls = self_class;
+        ctx->last_class_cache.name = class_name;
+        ctx->last_class_cache.is_meta = class_is_meta;
     }
     
     if (!tracer_should_trace(g_tracer_ctx, frame)) {

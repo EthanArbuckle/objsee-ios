@@ -12,6 +12,7 @@
 #include "encoding_size.h"
 #include "objc-internal.h"
 #include "logging.h"
+#include "class_name_cache.h"
 
 __attribute__((aligned(16), always_inline, hot))
 void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_frame_t *frame, void *stack_base, tracer_event_t *event) {
@@ -107,7 +108,7 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
                 continue;
             }
 
-            const char *class_name = object_getClassName(objc_object);
+            const char *class_name = class_name_cache_get(object_class);
             if (class_name == NULL) {
                 return;
             }

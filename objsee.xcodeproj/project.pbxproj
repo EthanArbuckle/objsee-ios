@@ -275,6 +275,7 @@
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5F9EE5C42D575FB400A32B14 /* testapp */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (5F9EE5D92D575FB700A32B14 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = testapp; sourceTree = "<group>"; };
+		5FE219782F3024550072B458 /* caches */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = caches; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -414,6 +415,7 @@
 				5FCA29B12CFC496900D7BB08 /* rebind.c */,
 				5FCA29B22CFC496900D7BB08 /* selector_deny_list.h */,
 				5FCA29B32CFC496900D7BB08 /* selector_deny_list.c */,
+				5FE219782F3024550072B458 /* caches */,
 			);
 			path = interception;
 			sourceTree = "<group>";
@@ -669,6 +671,9 @@
 			);
 			dependencies = (
 			);
+			fileSystemSynchronizedGroups = (
+				5FE219782F3024550072B458 /* caches */,
+			);
 			name = libobjsee;
 			productName = objctracer;
 			productReference = 5FAF157A2C7E4CA100E10412 /* libobjsee.framework */;
@@ -708,6 +713,9 @@
 			);
 			dependencies = (
 				5FF9EFEC2D3321A000BCFBA9 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5FE219782F3024550072B458 /* caches */,
 			);
 			name = libobjseeTests;
 			packageProductDependencies = (
