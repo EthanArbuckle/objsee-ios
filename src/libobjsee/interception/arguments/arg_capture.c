@@ -126,6 +126,28 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
 
             event_arg->description = strdup(description_buf);
         }
+        else if (event_arg->type_encoding[0] == '#') {
+            Class cls = *(Class *)event_arg->address;
+            if (cls == NULL || (uintptr_t)cls < 0x10000) {
+                continue;
+            }
+            
+            // Skip classes that are not yet realized. Interacting with them is dangerous
+            if (!is_class_realized(cls)) {
+                continue;
+            }
+
+            char description_buf[1024];
+            if (description_for_argument(event_arg, g_tracer_ctx->config.format.args, description_buf, sizeof(description_buf)) != KERN_SUCCESS) {
+                const char *class_name = event_arg->objc_class_name ? event_arg->objc_class_name : "unknown";
+                const char *sel_name = event->method_name ? event->method_name : "unknown";
+                objsee_log("Failed to get description for objc argument %d of type %s, class: %s, sel: %s, sig: %s\n", i, event_arg->type_encoding, class_name, sel_name, event->method_signature);
+                continue;
+            }
+            
+            event_arg->description = strdup(description_buf);
+        }
+            
         else {
             // Make a copy of the argument value. The real one is vulnerable to external modification / deallocation,
             // which could cause crashes when passing it to runtime functions like object_getClass()
