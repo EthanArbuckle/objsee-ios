@@ -111,12 +111,17 @@ static void *transport_thread(void *tracer_arg) {
                     continue;
                 }
                 
-                tracer_set_error(tracer, "Send failed: %s", strerror(errno));
+                if (errno == EPIPE || errno == ECONNRESET) {
+                }
+                else {
+                    tracer_set_error(tracer, "Send failed: %s", strerror(errno));
+                }
                 
                 free(send_buffer);
                 if (!msg.is_inline) {
                     free(msg.data);
                 }
+
                 return NULL;
             }
         }
@@ -173,7 +178,10 @@ static tracer_result_t init_socket_transport(tracer_t *tracer, const tracer_tran
         tracer_set_error(tracer, "Failed to connect after %d attempts", MAX_RETRIES);
         return TRACER_ERROR_INITIALIZATION;
     }
-    
+        
+    // Ignore SIGPIPE to prevent crashes on send to closed socket
+    signal(SIGPIPE, SIG_IGN);
+
     int flags = fcntl(sockfd, F_GETFL, 0);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
     
