@@ -93,6 +93,7 @@ const char *encode_tracer_config(tracer_config_t *config) {
     yyjson_mut_obj_add_bool(doc, format, "variable_separator_spacing", config->format.variable_separator_spacing);
     yyjson_mut_obj_add_int(doc, format, "static_separator_spacing", config->format.static_separator_spacing);
     yyjson_mut_obj_add_bool(doc, format, "include_newline_in_formatted_trace", config->format.include_newline_in_formatted_trace);
+    yyjson_mut_obj_add_bool(doc, format, "include_caller_info", config->format.include_caller_info);
     yyjson_mut_obj_add_int(doc, format, "arg_format", config->format.args);
     yyjson_mut_obj_add_val(doc, root, "format", format);
 

@@ -189,6 +189,12 @@ tracer_result_t decode_tracer_config(const char *config_str, tracer_config_t *co
         if (format_obj != NULL) {
             format.args = yyjson_get_int(format_obj);
         }
+        
+        format_obj = yyjson_obj_get(obj, "include_caller_info");
+        if (format_obj != NULL) {
+            format.include_caller_info = yyjson_get_bool(format_obj);
+        }
+        
         config_out.format = format;
     }
             

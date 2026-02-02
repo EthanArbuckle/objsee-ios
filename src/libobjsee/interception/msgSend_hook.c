@@ -7,15 +7,16 @@
 
 #include <objc/runtime.h>
 #include <mach/mach.h>
+#include <execinfo.h>
 #include <dlfcn.h>
 #include "selector_deny_list.h"
+#include "class_name_cache.h"
 #include "event_handler.h"
 #include "objc-internal.h"
 #include "arg_capture.h"
 #include "tracer.h"
 #include "rebind.h"
 #include "tsd.h"
-#include "class_name_cache.h"
 
 #define LIKELY(x)   __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
@@ -109,12 +110,40 @@ void free_event_arguments(tracer_event_t *event) {
     event->is_class_method = false;
 }
 
-#define PTR_PLAUSIBLE(p) ({            \
-    uintptr_t __p = (uintptr_t)(p);   \
-    (__p > 0x0000000000010000ULL &&   \
-     __p < 0x00007FFFFFFFFFFFULL);    \
-})
-
+static void populate_event_caller_info(struct tracer_thread_context_t *ctx, int stack_depth_on_entry, tracer_event_t *event) {
+    if (stack_depth_on_entry > 0) {
+        // If current depth is > 0, the caller is the previous frame
+        struct tracer_thread_context_frame_t *caller_frame = &ctx->frames[stack_depth_on_entry - 1];
+        event->caller.class_name = caller_frame->self_class_name;
+        event->caller.method_name = caller_frame->selector_name;
+    }
+    else {
+        // This is the first captured call in this thread.
+        // Use backtrace() and dladdr() to get caller info
+        const char *bt_frames[5];
+        int bt_size = backtrace((void **)bt_frames, 5);
+        
+        if (bt_size >= 3) {
+            Dl_info info;
+            if (dladdr(bt_frames[2], &info) != 0) {
+                if (info.dli_sname != NULL) {
+                    event->caller.class_name = info.dli_sname;
+                }
+                else {
+                    // Fallback to file offset
+                    static __thread char addr_buf[32];
+                    uintptr_t offset = (uintptr_t)bt_frames[2] - (uintptr_t)info.dli_fbase;
+                    snprintf(addr_buf, sizeof(addr_buf), "0x%lx", offset);
+                    event->caller.class_name = addr_buf;
+                }
+                
+                if (info.dli_fname != NULL) {
+                    event->caller.method_name = info.dli_fname;
+                }
+            }
+        }
+    }
+}
 
 __attribute__((aligned(16), always_inline, hot))
 bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t lr, void *stack_ptr) {
@@ -164,13 +193,22 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         ctx->last_class_cache.is_meta = class_is_meta;
     }
     
-    if (!tracer_should_trace(g_tracer_ctx, frame)) {
+    bool should_trace = tracer_evaluate_trace_policy(g_tracer_ctx, frame);
+    bool tracking_callers = g_tracer_ctx->config.format.include_caller_info;
+    if (!should_trace) {
+        // When caller-tracking is enabled, all frames need to be recorded regardless of whether they are traced
+        if (tracking_callers) {
+            frame->lr = lr;
+            ctx->stack_depth++;
+
+            // true will make the trampoline call post_objc_msgSend_callback() (stack depth decrement)
+            return true;
+        }
+        
+        // Not tracing this call, skip the stack decrement callback
         return false;
     }
-    
-    ctx->stack_depth++;
-    frame->traced = true;
-    
+
     tracer_event_t event = {
         .class_name = frame->self_class_name,
         .method_name = selector_name,
@@ -184,7 +222,11 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         .method_signature = NULL,
     };
     
-    bool should_capture_args = ctx->capture_arguments && ctx->stack_depth <= 32 && selector_has_arguments(frame->selector_name);
+    if (tracking_callers) {
+        populate_event_caller_info(ctx, stack_depth_on_entry, &event);
+    }
+    
+    bool should_capture_args = ctx->capture_arguments && ctx->stack_depth <= 32 && selector_has_arguments(selector_name);
     if (LIKELY(should_capture_args)) {
         // Make a copy of the stack so that memory doesn't change out from under us while interpreting argument values
         char local_stack_copy_buffer[1024];
@@ -220,7 +262,8 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         }
     }
     
-    ctx->trace_depth += 1;
+    ctx->trace_depth++;
+    ctx->stack_depth++;
     frame->traced = true;
     frame->lr = lr;
     

@@ -79,6 +79,8 @@ typedef struct {
     // TUI hack
     bool include_newline_in_formatted_trace;
     
+    bool include_caller_info;
+    
 /*
     [thread id] ....{indent_char} |{indent_separator_char}
 
@@ -131,6 +133,15 @@ typedef struct tracer_event_t {
     const char *method_signature;
     tracer_argument_t *arguments;
     size_t argument_count;
+    
+    // Info about the caller of this trace event
+    struct {
+        const char *class_name;
+        const char *method_name;
+        bool is_class_method;
+        const char *image_path;
+    } caller;
+    
 } tracer_event_t;
 
 typedef struct tracer_filter {

@@ -86,7 +86,7 @@ typedef struct tracer_context_t {
 
 tracer_result_t tracer_context_init(tracer_t * _Nonnull tracer);
 
-bool tracer_should_trace(tracer_t * _Nonnull tracer, tracer_thread_context_frame_t * _Nonnull frame);
+bool tracer_evaluate_trace_policy(tracer_t * _Nonnull tracer, tracer_thread_context_frame_t * _Nonnull frame);
 void tracer_set_error(tracer_t * _Nonnull tracer, const char * _Nonnull format, ...);
 
 __attribute__((always_inline, hot))

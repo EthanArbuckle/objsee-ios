@@ -225,9 +225,10 @@ int apply_defaults_to_config(tracer_config_t *config) {
         .include_indent_separators = true,
         .indent_separator_char = "|",
         .variable_separator_spacing = false,
-        .static_separator_spacing = 2,
+        .static_separator_spacing = 1,
         .include_newline_in_formatted_trace = false,
         .args = TRACER_ARG_FORMAT_CLASS,
+        .include_caller_info = false,
     };
     
     config->tracer_delay_ms = 0;

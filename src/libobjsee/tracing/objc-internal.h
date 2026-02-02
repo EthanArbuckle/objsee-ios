@@ -26,6 +26,12 @@
 #define _OBJC_TAG_EXT_PAYLOAD_LSHIFT 9
 #define _OBJC_TAG_EXT_PAYLOAD_RSHIFT 12
 
+#define PTR_PLAUSIBLE(p) ({            \
+    uintptr_t __p = (uintptr_t)(p);   \
+    (__p > 0x0000000000010000ULL &&   \
+     __p < 0x00007FFFFFFFFFFFULL);    \
+})
+
 static inline bool _objc_isTaggedPointer(const void * _Nullable ptr) {
 #if __LP64__
     return ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
