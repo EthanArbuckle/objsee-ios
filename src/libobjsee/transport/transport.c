@@ -25,6 +25,8 @@ static void make_abs_timespec_from_now(struct timespec *ts, int seconds_from_now
     ts->tv_nsec = (long)tv.tv_usec * 1000L;
 }
 
+extern void cleanup_event_handler(void);
+
 static void *transport_thread(void *tracer_arg) {
     tracer_t *tracer = (tracer_t *)tracer_arg;
     transport_context_t *ctx = (transport_context_t *)tracer->transport_context;
@@ -112,6 +114,13 @@ static void *transport_thread(void *tracer_arg) {
                 }
                 
                 if (errno == EPIPE || errno == ECONNRESET) {
+                    tracer_set_error(tracer, "Connection closed by peer. Stopping tracer.");
+                    
+                    if (tracer_stop(tracer) != TRACER_SUCCESS) {
+                        tracer_set_error(tracer, "Failed to stop tracer after connection closure");
+                    }
+                    
+                    cleanup_event_handler();
                 }
                 else {
                     tracer_set_error(tracer, "Send failed: %s", strerror(errno));

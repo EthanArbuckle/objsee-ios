@@ -68,13 +68,14 @@ static void *_find_MSHookFunction(void) {
 static void *_find_MSHookMemory(void) {
     static void *_MSHookMemory = NULL;
     if (_MSHookMemory == NULL) {
-        
+        _find_hooking_library();
+
         const char *symbol_names[2] = {
-            "EKHookMemoryRaw_impl"
+            "EKHookMemoryRaw_impl",
             "MSHookMemory",
         };
         for (size_t i = 0; i < sizeof(symbol_names) / sizeof(symbol_names[0]); i++) {
-            _MSHookMemory = dlsym(_find_hooking_library(), symbol_names[i]);
+            _MSHookMemory = dlsym(RTLD_DEFAULT, symbol_names[i]);
             if (_MSHookMemory != NULL) {
                 break;
             }

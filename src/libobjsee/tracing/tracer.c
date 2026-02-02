@@ -301,7 +301,7 @@ tracer_result_t tracer_start(tracer_t *tracer) {
     
     // Start tracing
     tracer_result_t result = init_message_interception(tracer);
-    if (result != TRACER_SUCCESS && result != TRACER_ERROR_ALREADY_INITIALIZED) {
+    if (result != TRACER_SUCCESS) {
         tracer_set_error(tracer, "Failed to initialize message interception: %d", result);
         return result;
     }
@@ -321,6 +321,13 @@ tracer_result_t tracer_stop(tracer_t *tracer) {
     }
     
     tracer->running = false;
+    
+    // Unhook objc_msgSend
+    if (disable_message_interception(tracer) != TRACER_SUCCESS) {
+        tracer_set_error(tracer, "Failed to disable message interception");
+        return TRACER_ERROR_RUNTIME;
+    }
+    
     return TRACER_SUCCESS;
 }
 

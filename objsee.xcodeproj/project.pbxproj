@@ -425,8 +425,6 @@
 				5FBAC0552D4FBA1300AF19D8 /* arguments */,
 				5FCA29AD2CFC496900D7BB08 /* msgSend_hook.h */,
 				5FCA29AE2CFC496900D7BB08 /* msgSend_hook.c */,
-				5FCA29B02CFC496900D7BB08 /* rebind.h */,
-				5FCA29B12CFC496900D7BB08 /* rebind.c */,
 				5FCA29B22CFC496900D7BB08 /* selector_deny_list.h */,
 				5FCA29B32CFC496900D7BB08 /* selector_deny_list.c */,
 				5FE219B92F3062DC0072B458 /* caches */,
@@ -504,6 +502,8 @@
 			children = (
 				5FE219C12F3063470072B458 /* substrate_apis.h */,
 				5FE219BE2F30630B0072B458 /* substrate_apis.c */,
+				5FCA29B02CFC496900D7BB08 /* rebind.h */,
+				5FCA29B12CFC496900D7BB08 /* rebind.c */,
 			);
 			path = hooking;
 			sourceTree = "<group>";

@@ -24,9 +24,14 @@
 
 extern void new_objc_msgSend(void);
 
-void *g_original_objc_msgSend = NULL;
-// TODO: remove
 static tracer_t *g_tracer_ctx = NULL;
+
+void *g_original_objc_msgSend = NULL;
+static int g_objc_msgSend_hooked = 0;
+
+// Copy of objc_msgSend's instructions, pre- and post-hooking. Used for unhooking
+static uint32_t prehook_msgSend_instructions[4];
+static uint32_t hooked_msgSend_instructions[4];
 
 __attribute__((aligned(16), always_inline, hot))
 static inline struct tracer_thread_context_t *get_thread_context(void) {
@@ -89,11 +94,26 @@ void free_event_arguments(tracer_event_t *event) {
                 free((void *)arg->block_signature);
                 arg->block_signature = NULL;
             }
+            
+            if (LIKELY(arg->objc_class_name != NULL)) {
+                free((void *)arg->objc_class_name);
+                arg->objc_class_name = NULL;
+            }
         }
         
         free(event->arguments);
         event->arguments = NULL;
     }
+    
+    event->argument_count = 0;
+    event->formatted_output = NULL;
+    event->class_name = NULL;
+    event->method_name = NULL;
+    event->image_path = NULL;
+    event->thread_id = 0;
+    event->trace_depth = 0;
+    event->real_depth = 0;
+    event->is_class_method = false;
 }
 
 static void populate_event_caller_info(struct tracer_thread_context_t *ctx, int stack_depth_on_entry, tracer_event_t *event) {
@@ -270,38 +290,54 @@ uintptr_t post_objc_msgSend_callback(void) {
     return frame->lr;
 }
 
-static void *get_original_objc_msgSend(void) {
-    if (g_original_objc_msgSend == NULL) {
-        g_original_objc_msgSend = dlsym(RTLD_DEFAULT, "objc_msgSend");
-        if (g_original_objc_msgSend == NULL) {
-            tracer_set_error(g_tracer_ctx, "Failed to locate objc_msgSend");;
-        }
+static void copy_function_instructions(void *src, uint32_t *dest, size_t instr_count) {
+    uint32_t *src_ptr = (uint32_t *)src;
+    for (size_t i = 0; i < instr_count; i++) {
+        dest[i] = src_ptr[i];
+    }
+}
+
+kern_return_t restore_instructions_from_cache(void *func_ptr, uint32_t *cached_instrs) {
+    if (objsee_MSHookMemory(func_ptr, cached_instrs, 16) != KERN_SUCCESS) {
+        return KERN_FAILURE;
     }
     
-    return g_original_objc_msgSend;
+    return KERN_SUCCESS;
 }
 
 tracer_result_t init_message_interception(tracer_t *tracer) {
     if (tracer == NULL) {
-        tracer_set_error(g_tracer_ctx, "init_message_interception: Invalid tracer context");
+        tracer_set_error(g_tracer_ctx, "tracer is NULL");
         return TRACER_ERROR_INVALID_ARGUMENT;
     }
     
     if (g_tracer_ctx != NULL) {
-        tracer_set_error(g_tracer_ctx, "init_message_interception: Tracer already initialized");
-        return TRACER_ERROR_ALREADY_INITIALIZED;
-    }
-    
-    g_tracer_ctx = tracer;
-    
-    g_original_objc_msgSend = get_original_objc_msgSend();
-    if (g_original_objc_msgSend == NULL) {
-        tracer_set_error(g_tracer_ctx, "Failed to locate objc_msgSend");
-        return TRACER_ERROR_INITIALIZATION;
+        if (g_tracer_ctx == tracer) {
+            // Cannot initialize the same tracer twice (without cleaning up first)
+            tracer_set_error(g_tracer_ctx, "tracer_cleanup() must be called before reinitializing the same tracer");
+            return TRACER_ERROR_ALREADY_INITIALIZED;
+        }
+        
+        if (g_tracer_ctx->running) {
+            // A different tracer is already running
+            tracer_set_error(g_tracer_ctx, "A tracer is already running");
+            return TRACER_ERROR_ALREADY_INITIALIZED;
+        }
+        
+        // Tear down the previous tracer
+        if (tracer_cleanup(g_tracer_ctx) != TRACER_SUCCESS) {
+            tracer_set_error(g_tracer_ctx, "Failed to clean up previous tracer");
+            return TRACER_ERROR_INITIALIZATION;
+        }
+        
+        tracer_set_error(tracer, "Previous tracer cleaned up");
     }
 
+    g_tracer_ctx = tracer;
+    
     if (tracer->config.use_symbol_rebinding) {
         // Hook objc_msgSend using symbol rebinding (works without a jailbreak)
+        g_original_objc_msgSend = dlsym(RTLD_DEFAULT, "objc_msgSend");
         struct symbol_rebinding_t *rebinding = hook_function("objc_msgSend", new_objc_msgSend);
         if (rebinding == NULL) {
             tracer_set_error(g_tracer_ctx, "Failed to hook objc_msgSend");
@@ -311,20 +347,82 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
         free(rebinding);
     }
     else {
-            kern_return_t ret = objsee_MSHookFunction(objc_msgSend_dlsym, new_objc_msgSend, (void **)&original_objc_msgSend);
+        void *objc_msgSend = dlsym(RTLD_DEFAULT, "objc_msgSend");
+        if (g_objc_msgSend_hooked == 0) {
+            // If objc_msgSend has not been hooked yet, cache its first 4 instructions.
+            // They are used for unhooking
+            copy_function_instructions(objc_msgSend, prehook_msgSend_instructions, 4);
+            
+            // Hook objc_msgSend using MSHookFunction
+            kern_return_t ret = objsee_MSHookFunction(objc_msgSend, new_objc_msgSend, (void **)&g_original_objc_msgSend);
             if (ret != KERN_SUCCESS) {
                 tracer_set_error(g_tracer_ctx, "Failed to hook objc_msgSend using MSHookFunction");
                 return TRACER_ERROR_INITIALIZATION;
             }
+            
+            // Cache the hooked instructions. MSHookFunction (from ellekit) fails to apply a hook to a function more than once.
+            // If we hook, unhook, then want to rehook, it has to be done by writing these instructions back to objc_msgSend
+            copy_function_instructions(objc_msgSend, hooked_msgSend_instructions, 4);
+            g_objc_msgSend_hooked = 1;
+        }
+        else {
+            // objc_msgSend has already been hooked once before, and presumably restored back to its original state.
+            // MSHookFunction fails to hook a function that's already been hooked (even with the function's original instructions restored).
+            // To rehook, write the instructions that were cached after installing the first hook
+            restore_instructions_from_cache(objc_msgSend, hooked_msgSend_instructions);
+        }
+    }
+
+    return TRACER_SUCCESS;
+}
+
+tracer_result_t disable_message_interception(tracer_t *tracer) {
+    if (tracer == NULL || g_tracer_ctx != tracer) {
+        tracer_set_error(g_tracer_ctx, "disable_message_interception: tracer not active");
+        return TRACER_ERROR_INVALID_ARGUMENT;
+    }
         
+    if (tracer->config.use_symbol_rebinding) {
+        struct symbol_rebinding_t *rebinding = hook_function("objc_msgSend", g_original_objc_msgSend);
+        if (rebinding == NULL) {
+            tracer_set_error(g_tracer_ctx, "Failed to bind objc_msgSend back to original implementation");
+            return TRACER_ERROR_INITIALIZATION;
+        }
+        
+        free(rebinding);
+    }
+    else {
+        // Suspend threads, unhook objc_msgSend by restoring its original instructions, then resume threads
+        kern_return_t kr;
+        mach_port_t task = mach_task_self();
+        thread_act_array_t threads;
+        mach_msg_type_number_t thread_count;
+        
+        if ((kr = task_threads(task, &threads, &thread_count)) != KERN_SUCCESS) {
+            return kr;
+        }
+        
+        thread_t self = mach_thread_self();
+        for (mach_msg_type_number_t i = 0; i < thread_count; i++) {
+            if (threads[i] != self) {
+                thread_suspend(threads[i]);
             }
         }
         
-        }
+        // Restore the instructions that were cached before the hook was installed
+        void *objc_msgSend = dlsym(RTLD_DEFAULT, "objc_msgSend");
+        restore_instructions_from_cache(objc_msgSend, prehook_msgSend_instructions);
+        g_original_objc_msgSend = objc_msgSend;
         
+        for (mach_msg_type_number_t i = 0; i < thread_count; i++) {
+            if (threads[i] != self) {
+                thread_resume(threads[i]);
+            }
+            mach_port_deallocate(task, threads[i]);
         }
-        
+        vm_deallocate(task, (vm_address_t)threads, thread_count * sizeof(thread_act_t));
+        mach_port_deallocate(task, self);
     }
-
+    
     return TRACER_SUCCESS;
 }

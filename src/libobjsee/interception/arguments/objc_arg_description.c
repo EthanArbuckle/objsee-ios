@@ -60,15 +60,9 @@ static IMP get_description_imp_for_class(Class cls) {
 }
 
 static bool is_kind_of_class(id object, Class cls) {
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000
-    if (objc_opt_isKindOfClass(object, cls)) {
-        return true;
-    }
-#else
     if (((bool (*)(id, SEL, Class))g_original_objc_msgSend)(object, sel_isKindOfClass, cls)) {
         return true;
     }
-#endif
 
     return false;
 }
@@ -108,7 +102,7 @@ static const char *copy_objc_object_description(void *address, Class obj_class) 
     if (should_object_be_skipped(object)) {
         return NULL;
     }
-    
+
     IMP descriptionImp = get_description_imp_for_class(obj_class);
     if (descriptionImp == NULL) {
         return NULL;
