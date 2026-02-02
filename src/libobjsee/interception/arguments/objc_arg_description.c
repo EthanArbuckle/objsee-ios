@@ -65,7 +65,7 @@ static bool is_kind_of_class(id object, Class cls) {
         return true;
     }
 #else
-    if (((bool (*)(id, SEL, Class))orig_objc_msgSend)(object, sel_isKindOfClass, cls)) {
+    if (((bool (*)(id, SEL, Class))original_objc_msgSend)(object, sel_isKindOfClass, cls)) {
         return true;
     }
 #endif

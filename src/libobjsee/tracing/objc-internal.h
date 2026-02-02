@@ -26,10 +26,17 @@
 #define _OBJC_TAG_EXT_PAYLOAD_LSHIFT 9
 #define _OBJC_TAG_EXT_PAYLOAD_RSHIFT 12
 
-#define PTR_PLAUSIBLE(p) ({            \
-    uintptr_t __p = (uintptr_t)(p);   \
-    (__p > 0x0000000000010000ULL &&   \
-     __p < 0x00007FFFFFFFFFFFULL);    \
+#if UINTPTR_MAX == 0xffffffffffffffffULL
+    #define PTR_USER_MAX 0x00007FFFFFFFFFFFULL
+#else
+    #define PTR_USER_MAX UINTPTR_MAX
+#endif
+
+#define PTR_PLAUSIBLE(p) ({                  \
+    uintptr_t __p = (uintptr_t)(p);          \
+    (__p != 0 &&                             \
+     __p >  0x0000000000010000ULL &&         \
+     __p <= (uintptr_t)PTR_USER_MAX);        \
 })
 
 static inline bool _objc_isTaggedPointer(const void * _Nullable ptr) {
