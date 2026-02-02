@@ -35,7 +35,7 @@
 #define PTR_PLAUSIBLE(p) ({                  \
     uintptr_t __p = (uintptr_t)(p);          \
     (__p != 0 &&                             \
-     __p >  0x0000000000010000ULL &&         \
+     __p >  0x0000000000001000ULL &&         \
      __p <= (uintptr_t)PTR_USER_MAX);        \
 })
 
@@ -157,8 +157,7 @@ static inline void realized_cache_insert(uintptr_t cls_ptr) {
     }
 }
 
-__attribute__((always_inline))
-static inline bool is_class_realized(Class _Nonnull cls) {
+static bool is_class_realized(Class _Nonnull cls) {
     uintptr_t cls_ptr = (uintptr_t)cls;
     if (realized_cache_contains(cls_ptr)) {
         return true;

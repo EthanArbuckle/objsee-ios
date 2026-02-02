@@ -13,8 +13,9 @@
 #include "objc-internal.h"
 #include "logging.h"
 #include "class_name_cache.h"
+#include "signal_guard.h"
 
-__attribute__((aligned(16), always_inline, hot))
+__attribute__((aligned(16), hot))
 void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_frame_t *frame, void *stack_base, tracer_event_t *event) {
     Method method;
     if (frame->selector_is_class_method) {
@@ -42,7 +43,6 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
     event->method_signature = strdup(method_signature);
     
     size_t offsets[32] = {0};
-    memset(offsets, 0, sizeof(offsets));
     if (get_offsets_of_args_using_type_encoding(method_signature, offsets, arg_count) != KERN_SUCCESS) {
         tracer_set_error(g_tracer_ctx, "Failed to get offsets of arguments");
         return;
@@ -107,14 +107,22 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             if (!is_class_realized(object_class)) {
                 continue;
             }
-
-            const char *class_name = class_name_cache_get(object_class);
-            if (class_name == NULL) {
+            
+            const char *class_name = NULL;
+            bool ok = WHILE_IGNORING_SIGNALS({
+                class_name = class_name_cache_get(object_class);
+                if (class_name && PTR_PLAUSIBLE(class_name)) {
+                    event_arg->objc_class_name = strdup(class_name);
+                }
+                
+            });
+            
+            if (!ok || class_name == NULL || !PTR_PLAUSIBLE(class_name)) {
                 return;
             }
 
-            event_arg->objc_class_name = strdup(class_name);
-            event_arg->objc_class = object_class;
+            event_arg->objc_class = objc_getClass(class_name);
+
             
             char description_buf[1024];
             if (description_for_argument(event_arg, g_tracer_ctx->config.format.args, description_buf, sizeof(description_buf)) != KERN_SUCCESS) {
@@ -147,7 +155,6 @@ void capture_arguments(tracer_t *g_tracer_ctx, struct tracer_thread_context_fram
             
             event_arg->description = strdup(description_buf);
         }
-            
         else {
             // Make a copy of the argument value. The real one is vulnerable to external modification / deallocation,
             // which could cause crashes when passing it to runtime functions like object_getClass()

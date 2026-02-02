@@ -77,6 +77,6 @@ const char *class_name_cache_get(Class cls) {
         idx = (idx + 1) & mask;
     }
 
-    return objc_debug_class_getNameRaw(cls);// class_getName(cls);
+    return objc_debug_class_getNameRaw(cls);
 }
 

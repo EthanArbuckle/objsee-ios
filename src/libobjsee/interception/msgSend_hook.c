@@ -71,7 +71,7 @@ static inline bool selector_has_arguments(const char *sel_name) {
     return false;
 }
 
-void free_event_arguments(tracer_event_t *event) {
+static void free_event_arguments(tracer_event_t *event) {
     if (LIKELY(event->method_signature != NULL)) {
         free((void *)event->method_signature);
         event->method_signature = NULL;

@@ -9,6 +9,7 @@
 #include <objc/runtime.h>
 #include <string.h>
 #include "msgSend_hook.h"
+#include "signal_guard.h"
 
 // Cache the result of -description calls to avoid repeated calls
 static char *g_description_cache[1024] = {0};
@@ -99,30 +100,25 @@ static bool should_object_be_skipped(id object) {
 
 static const char *copy_objc_object_description(void *address, Class obj_class) {
     id object = (id)address;
-    if (should_object_be_skipped(object)) {
-        return NULL;
-    }
-
-    IMP descriptionImp = get_description_imp_for_class(obj_class);
-    if (descriptionImp == NULL) {
+//    if (should_object_be_skipped(object)) {
+//        return NULL;
+//    }
+    
+    id description = ((id (*)(id, SEL))g_original_objc_msgSend)(object, sel_description);
+    if (description == NULL) {
         return NULL;
     }
     
-    id descriptionString = ((id (*)(id, SEL))descriptionImp)(object, sel_description);
-    if (descriptionString == NULL) {
-        return NULL;
-    }
-    
-    const char *utf8String = ((const char * (*)(id, SEL))g_original_objc_msgSend)(descriptionString, sel_UTF8String);
-    if (utf8String == NULL) {
+    const char *description_utf8 = ((const char * (*)(id, SEL))g_original_objc_msgSend)(description, sel_UTF8String);
+    if (description_utf8 == NULL) {
         return NULL;
     }
     
     // For string types, use objc style quoting (@"string")
     if (is_kind_of_class(object, class_NSString)) {
-        size_t original_len = strlen(utf8String);
-        const char *newline_pos = strchr(utf8String, '\n');
-        size_t content_len = newline_pos ? (newline_pos - utf8String) : original_len;
+        size_t original_len = strlen(description_utf8);
+        const char *newline_pos = strchr(description_utf8, '\n');
+        size_t content_len = newline_pos ? (newline_pos - description_utf8) : original_len;
         
         char *quoted_string = malloc(content_len + 4);
         if (quoted_string == NULL) {
@@ -131,14 +127,14 @@ static const char *copy_objc_object_description(void *address, Class obj_class) 
         
         quoted_string[0] = '@';
         quoted_string[1] = '"';
-        memcpy(quoted_string + 2, utf8String, content_len);
+        memcpy(quoted_string + 2, description_utf8, content_len);
         quoted_string[2 + content_len] = '"';
         quoted_string[2 + content_len + 1] = '\0';
         
         return quoted_string;
     }
     
-    return strdup(utf8String);
+    return strdup(description_utf8);
 }
 
 const char *lookup_description_for_address(void *address, Class obj_class) {
@@ -159,7 +155,11 @@ const char *lookup_description_for_address(void *address, Class obj_class) {
     }
     OSSpinLockUnlock(&g_description_cache_lock);
 
-    const char *built_desc = copy_objc_object_description(address, obj_class);
+    const char *built_desc = NULL;
+    WHILE_IGNORING_SIGNALS({
+        built_desc = copy_objc_object_description(address, obj_class);
+    });
+    
     if (built_desc == NULL) {
         return NULL;
     }

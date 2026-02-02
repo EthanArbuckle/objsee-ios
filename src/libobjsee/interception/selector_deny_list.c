@@ -65,7 +65,7 @@ bool should_skip_selector_name(const char *selector_name) {
     
     // fastpath check for setters 'set...:'
     if (first_char == 's' && selector_name[1] == 'e' && selector_name[2] == 't') {
-        return true;
+        return false;
     }
 
     

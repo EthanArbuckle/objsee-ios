@@ -34,24 +34,27 @@
  * @return The result of the block of code.
  * @note The signals will never hit the original signal handler.
  */
-#define WHILE_IGNORING_SIGNALS(code) do { \
+#define WHILE_IGNORING_SIGNALS(code) ({ \
+    bool __ok = false; \
     if (!g_sig_ignoring && g_sig_ignore_depth < 2) { \
         signal_handlers_t __old_handlers; \
         g_sig_ignore_depth++; \
         g_sig_ignoring = 1; \
         \
-        if (install_signal_handlers(&__old_handlers) != 0) { \
-            if (sigsetjmp(g_sig_ignore_jmpbuf, 1) == 0) { \
+        if (install_signal_handlers(&__old_handlers)) { \
+            int __jmp = sigsetjmp(g_sig_ignore_jmpbuf, 1); \
+            if (__jmp == 0) { \
                 code; \
+                __ok = true; \
+            } \
+            restore_signal_handlers(&__old_handlers); \
         } \
-        else { } \
-        restore_signal_handlers(&__old_handlers); \
-        } \
+        \
         g_sig_ignoring = 0; \
         g_sig_ignore_depth--; \
     } \
-} while(0)
-
+    __ok; \
+})
 
 static __thread sigjmp_buf g_sig_ignore_jmpbuf;
 static __thread volatile sig_atomic_t g_sig_ignoring = 0;

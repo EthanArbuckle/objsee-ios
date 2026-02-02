@@ -50,8 +50,8 @@ bool setup_exception_handler_on_process(pid_t traced_app_pid) {
  This info goes through a syntax highlighter then is printed to the console
 */
 
-#define MAX_FRAMES 128
-#define MAX_EXCEPTIONS 1
+#define MAX_FRAMES 64
+#define MAX_EXCEPTIONS 3
 
 typedef struct {
     const char *name;
