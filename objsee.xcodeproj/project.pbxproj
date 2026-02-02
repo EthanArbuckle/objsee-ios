@@ -92,9 +92,9 @@
 		5FE219BA2F3062DC0072B458 /* class_name_cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FE219B72F3062DC0072B458 /* class_name_cache.h */; };
 		5FE219BB2F3062DC0072B458 /* class_name_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FE219B82F3062DC0072B458 /* class_name_cache.c */; };
 		5FE219BC2F3062DC0072B458 /* class_name_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FE219B82F3062DC0072B458 /* class_name_cache.c */; };
-		5FE219BF2F30633A0072B458 /* mshookfuntion.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FE219BE2F30630B0072B458 /* mshookfuntion.c */; };
-		5FE219C02F30633A0072B458 /* mshookfuntion.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FE219BE2F30630B0072B458 /* mshookfuntion.c */; };
-		5FE219C22F30634B0072B458 /* mshookfunction.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FE219C12F3063470072B458 /* mshookfunction.h */; };
+		5FE219BF2F30633A0072B458 /* substrate_apis.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FE219BE2F30630B0072B458 /* substrate_apis.c */; };
+		5FE219C02F30633A0072B458 /* substrate_apis.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FE219BE2F30630B0072B458 /* substrate_apis.c */; };
+		5FE219C22F30634B0072B458 /* substrate_apis.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FE219C12F3063470072B458 /* substrate_apis.h */; };
 		5FF45BD72D333EBF0073F42E /* encoding_size.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FF45BCD2D333EBF0073F42E /* encoding_size.h */; };
 		5FF45BD92D333EBF0073F42E /* encoding_description.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FF45BD12D333EBF0073F42E /* encoding_description.h */; };
 		5FF45BDA2D333EBF0073F42E /* encoding_size.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FF45BCD2D333EBF0073F42E /* encoding_size.h */; };
@@ -249,8 +249,8 @@
 		5FE219B32F3056320072B458 /* watchdog.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = watchdog.m; sourceTree = "<group>"; };
 		5FE219B72F3062DC0072B458 /* class_name_cache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = class_name_cache.h; sourceTree = "<group>"; };
 		5FE219B82F3062DC0072B458 /* class_name_cache.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = class_name_cache.c; sourceTree = "<group>"; };
-		5FE219BE2F30630B0072B458 /* mshookfuntion.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mshookfuntion.c; sourceTree = "<group>"; };
-		5FE219C12F3063470072B458 /* mshookfunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = mshookfunction.h; sourceTree = "<group>"; };
+		5FE219BE2F30630B0072B458 /* substrate_apis.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = substrate_apis.c; sourceTree = "<group>"; };
+		5FE219C12F3063470072B458 /* substrate_apis.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = substrate_apis.h; sourceTree = "<group>"; };
 		5FF45BCD2D333EBF0073F42E /* encoding_size.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = encoding_size.h; sourceTree = "<group>"; };
 		5FF45BCE2D333EBF0073F42E /* encoding_size.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = encoding_size.c; sourceTree = "<group>"; };
 		5FF45BCF2D333EBF0073F42E /* blocks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = blocks.h; sourceTree = "<group>"; };
@@ -502,8 +502,8 @@
 		5FE219BD2F3062F50072B458 /* hooking */ = {
 			isa = PBXGroup;
 			children = (
-				5FE219C12F3063470072B458 /* mshookfunction.h */,
-				5FE219BE2F30630B0072B458 /* mshookfuntion.c */,
+				5FE219C12F3063470072B458 /* substrate_apis.h */,
+				5FE219BE2F30630B0072B458 /* substrate_apis.c */,
 			);
 			path = hooking;
 			sourceTree = "<group>";
@@ -597,7 +597,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5F7084952D5E2C7300329B4E /* objc-internal.h in Headers */,
-				5FE219C22F30634B0072B458 /* mshookfunction.h in Headers */,
+				5FE219C22F30634B0072B458 /* substrate_apis.h in Headers */,
 				5F34BF882D01AF9C0076EB3C /* tracer_types.h in Headers */,
 				5F9EE5A82D5729E000A32B14 /* objc_arg_description.h in Headers */,
 				5FCA29B52CFC496900D7BB08 /* msgSend_hook.h in Headers */,
@@ -863,7 +863,7 @@
 				5F9EE5AB2D5729E700A32B14 /* objc_arg_description.c in Sources */,
 				5FCA29C82CFC497300D7BB08 /* transport.c in Sources */,
 				5FF58D852D05B84A007F5000 /* msgSend_hook.c in Sources */,
-				5FE219BF2F30633A0072B458 /* mshookfuntion.c in Sources */,
+				5FE219BF2F30633A0072B458 /* substrate_apis.c in Sources */,
 				5FF45BDD2D333EBF0073F42E /* encoding_size.c in Sources */,
 				5FF45BDE2D333EBF0073F42E /* blocks.c in Sources */,
 				5FE219BB2F3062DC0072B458 /* class_name_cache.c in Sources */,
@@ -928,7 +928,7 @@
 				5F9EE60F2D589A6C00A32B14 /* ArgDescriptionTests.m in Sources */,
 				5FF45BE02D333EBF0073F42E /* blocks.c in Sources */,
 				5F9EE6202D594B4800A32B14 /* SelectorDenyListTests.m in Sources */,
-				5FE219C02F30633A0072B458 /* mshookfuntion.c in Sources */,
+				5FE219C02F30633A0072B458 /* substrate_apis.c in Sources */,
 				5FF45C0B2D333F980073F42E /* StructDecoderTests.m in Sources */,
 				5FF45BE12D333EBF0073F42E /* encoding_description.c in Sources */,
 				5FE219B62F3056320072B458 /* watchdog.m in Sources */,

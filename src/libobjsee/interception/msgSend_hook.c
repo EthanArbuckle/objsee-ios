@@ -11,7 +11,7 @@
 #include <dlfcn.h>
 #include "selector_deny_list.h"
 #include "class_name_cache.h"
-#include "mshookfunction.h"
+#include "substrate_apis.h"
 #include "event_handler.h"
 #include "objc-internal.h"
 #include "arg_capture.h"
