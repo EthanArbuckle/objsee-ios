@@ -434,8 +434,8 @@
 		5FCA29CF2CFC4BC300D7BB08 /* tracing */ = {
 			isa = PBXGroup;
 			children = (
-				5FCA29CB2CFC4BC300D7BB08 /* tracer.h */,
 				5F7084942D5E2C7300329B4E /* objc-internal.h */,
+				5FCA29CB2CFC4BC300D7BB08 /* tracer.h */,
 				5F9477B12F2590B500CAEC6C /* tsd.h */,
 				5FCA29CC2CFC4BC300D7BB08 /* tracer.c */,
 				5FCA29CD2CFC4BC300D7BB08 /* tracer_core.c */,

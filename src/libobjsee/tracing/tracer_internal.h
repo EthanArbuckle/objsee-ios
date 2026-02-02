@@ -59,7 +59,7 @@ typedef struct tracer_thread_context_t {
     uint32_t frame_capacity;
     struct tracer_thread_context_frame_t frames[INITIAL_STACK_FRAMES];
     
-    // Simple inline caches for last class and selector,
+    // Simple inline caches for last class
     // to reduce calls into objc runtime for repeated calls
     struct {
         Class _Nullable cls;
@@ -67,11 +67,6 @@ typedef struct tracer_thread_context_t {
         bool is_meta;
     } last_class_cache;
 
-    struct {
-        SEL _Nullable sel;
-        const char * _Nullable name;
-    } last_sel_cache;
-    
     // Whether to capture arguments for traced calls
     bool capture_arguments;
     

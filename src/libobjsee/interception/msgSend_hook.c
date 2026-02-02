@@ -173,7 +173,7 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     
     tracer_event_t event = {
         .class_name = frame->self_class_name,
-        .method_name = frame->selector_name,
+        .method_name = selector_name,
         .is_class_method = frame->selector_is_class_method,
         .image_path = frame->image_path,
         .thread_id = ctx->thread_id,

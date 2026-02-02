@@ -10,6 +10,8 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <objc/runtime.h>
+#include <stdatomic.h>
+#include <mach/mach.h>
 
 #define _OBJC_TAG_MASK (1UL<<63)
 #define _OBJC_TAG_INDEX_SHIFT 0
@@ -46,8 +48,10 @@ static inline bool _objc_isTaggedPointer(const void * _Nullable ptr) {
  * @param cls The class to check
  * @return true if the class is realized
  */
+
+
 __attribute__((always_inline))
-static inline bool is_class_realized(Class _Nonnull cls) {
+static inline bool is_class_realized_uncached(Class _Nonnull cls) {
     if (!cls) {
         return false;
     }
@@ -70,6 +74,89 @@ static inline bool is_class_realized(Class _Nonnull cls) {
     }
     
     return (flags & RW_REALIZED) != 0;
+}
+
+#define REALIZED_CACHE_SIZE (1u << 16)
+#define REALIZED_CACHE_MASK (REALIZED_CACHE_SIZE - 1u)
+
+typedef struct {
+    _Atomic(uintptr_t) key;
+} realized_cache_entry_t;
+
+static realized_cache_entry_t g_realized_cache[REALIZED_CACHE_SIZE];
+
+__attribute__((always_inline))
+static inline uint32_t hash_ptr(uintptr_t x) {
+#if __LP64__
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    x *= 0xc4ceb9fe1a85ec53ULL;
+    x ^= x >> 33;
+#else
+    x ^= x >> 16;
+    x *= 0x7feb352dU;
+    x ^= x >> 15;
+    x *= 0x846ca68bU;
+    x ^= x >> 16;
+#endif
+    return (uint32_t)x;
+}
+
+__attribute__((always_inline))
+static inline bool realized_cache_contains(uintptr_t cls_ptr) {
+    uint32_t h = hash_ptr(cls_ptr);
+    uint32_t idx = h & REALIZED_CACHE_MASK;
+
+    for (uint32_t probe = 0; probe < 8; probe++) {
+        uintptr_t k = atomic_load_explicit(&g_realized_cache[idx].key, memory_order_relaxed);
+        if (k == cls_ptr) {
+            return true;
+        }
+        
+        if (k == 0) {
+            return false;
+        }
+
+        idx = (idx + 1) & REALIZED_CACHE_MASK;
+    }
+
+    return false;
+}
+
+__attribute__((always_inline))
+static inline void realized_cache_insert(uintptr_t cls_ptr) {
+    uint32_t h = hash_ptr(cls_ptr);
+    uint32_t idx = h & REALIZED_CACHE_MASK;
+
+    for (uint32_t probe = 0; probe < 8; probe++) {
+        uintptr_t expected = 0;
+        if (atomic_compare_exchange_strong_explicit(&g_realized_cache[idx].key, &expected, cls_ptr, memory_order_relaxed, memory_order_relaxed)) {
+            return;
+        }
+
+        uintptr_t k = atomic_load_explicit(&g_realized_cache[idx].key, memory_order_relaxed);
+        if (k == cls_ptr) {
+            return;
+        }
+
+        idx = (idx + 1) & REALIZED_CACHE_MASK;
+    }
+}
+
+__attribute__((always_inline))
+static inline bool is_class_realized(Class _Nonnull cls) {
+    uintptr_t cls_ptr = (uintptr_t)cls;
+    if (realized_cache_contains(cls_ptr)) {
+        return true;
+    }
+
+    if (!is_class_realized_uncached(cls)) {
+        return false;
+    }
+
+    realized_cache_insert(cls_ptr);
+    return true;
 }
 
 #endif /* objc_internal_h */
