@@ -40,7 +40,7 @@
         g_sig_ignore_depth++; \
         g_sig_ignoring = 1; \
         \
-        if (install_signal_handlers(&__old_handlers) == 0) { \
+        if (install_signal_handlers(&__old_handlers) != 0) { \
             if (sigsetjmp(g_sig_ignore_jmpbuf, 1) == 0) { \
                 code; \
         } \
@@ -60,7 +60,7 @@ static __thread int g_sig_ignore_depth = 0;
 typedef struct {
     struct sigaction sa_segv;
     struct sigaction sa_bus;
-    struct sigaction sa_kill;
+    struct sigaction sa_trap;
     struct sigaction sa_ill;
     struct sigaction sa_fpe;
 } signal_handlers_t;
@@ -83,7 +83,7 @@ static inline bool install_signal_handlers(signal_handlers_t *old_handlers) {
         
         sigaction(SIGSEGV, &sa, &old_handlers->sa_segv) == 0 &&
         sigaction(SIGBUS, &sa, &old_handlers->sa_bus) == 0 &&
-        sigaction(SIGKILL, &sa, &old_handlers->sa_kill) == 0 &&
+        sigaction(SIGTRAP, &sa, &old_handlers->sa_trap) == 0 &&
         sigaction(SIGILL, &sa, &old_handlers->sa_ill) == 0 &&
         sigaction(SIGFPE, &sa, &old_handlers->sa_fpe) == 0;
     }));
@@ -93,7 +93,7 @@ static inline void restore_signal_handlers(const signal_handlers_t *old_handlers
     WHILE_BLOCKING_SIGNALS(({
         sigaction(SIGSEGV, &old_handlers->sa_segv, NULL);
         sigaction(SIGBUS, &old_handlers->sa_bus, NULL);
-        sigaction(SIGKILL, &old_handlers->sa_kill, NULL);
+        sigaction(SIGTRAP, &old_handlers->sa_trap, NULL);
         sigaction(SIGILL, &old_handlers->sa_ill, NULL);
         sigaction(SIGFPE, &old_handlers->sa_fpe, NULL);
     }));
