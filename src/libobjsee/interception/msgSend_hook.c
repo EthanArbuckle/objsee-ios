@@ -35,7 +35,7 @@ static inline struct tracer_thread_context_t *get_thread_context(void) {
             return NULL;
         }
         
-        ctx->stack_depth = -1;
+        ctx->stack_depth = 0;
         ctx->trace_depth = 0;
         ctx->capture_arguments = g_tracer_ctx->config.format.args != TRACER_ARG_FORMAT_NONE;
         ctx->stack_base = NULL;
@@ -112,8 +112,8 @@ __attribute__((aligned(16), always_inline, hot))
 bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t lr, void *stack_ptr) {
     struct tracer_thread_context_t *ctx = get_thread_context();
     
-    int scratch_depth = ctx->stack_depth + 1;
-    if (UNLIKELY(scratch_depth >= INITIAL_STACK_FRAMES)) {
+    int stack_depth_on_entry = ctx->stack_depth;
+    if (UNLIKELY(stack_depth_on_entry >= INITIAL_STACK_FRAMES)) {
         tracer_set_error(g_tracer_ctx, "stack depth exceeded limit");
         return false;
     }
@@ -122,22 +122,20 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         return false;
     }
     
-    struct tracer_thread_context_frame_t *frame = &ctx->frames[scratch_depth];
-    frame->lr = lr;
-    frame->_cmd = _cmd;
-    frame->image_path = NULL;
-    
     const char *selector_name = sel_getName(_cmd);
     Class self_class = object_getClass(self);
     if (UNLIKELY(self_class == NULL || (uintptr_t)self_class < 0x10000 || !is_class_realized(self_class))) {
         return false;
     }
 
-    // Resolve and cache class name, selector name, and whether the selector is a class method.
+    struct tracer_thread_context_frame_t *frame = &ctx->frames[stack_depth_on_entry];
+    frame->_cmd = _cmd;
+    frame->self_class = self_class;
     frame->selector_name = selector_name;
+
+    // Resolve and cache class info
     // These details will be needed by filters later on and could have interest by an API user.
     if (UNLIKELY(ctx->last_class_cache.cls == self_class)) {
-        frame->self_class = self_class;
         frame->self_class_name = ctx->last_class_cache.name;
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
     }
@@ -146,7 +144,6 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
         ctx->last_class_cache.name = class_getName(self_class);
         ctx->last_class_cache.is_meta = class_isMetaClass(self_class);
 
-        frame->self_class = self_class;
         frame->self_class_name = ctx->last_class_cache.name;
         frame->selector_is_class_method = ctx->last_class_cache.is_meta;
     }
@@ -210,6 +207,8 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
     }
     
     ctx->trace_depth += 1;
+    frame->traced = true;
+    frame->lr = lr;
     
     return true;
 }
@@ -217,14 +216,14 @@ bool pre_objc_msgSend_callback(__unsafe_unretained id self, SEL _cmd, uintptr_t 
 __attribute__((aligned(16), always_inline, hot))
 uintptr_t post_objc_msgSend_callback(void) {
     struct tracer_thread_context_t *ctx = get_thread_context();
-    size_t current_depth = ctx->stack_depth;
+    size_t stack_depth_on_entry = ctx->stack_depth - 1;
     
     ctx->stack_depth -= 1;
     if (LIKELY(ctx->trace_depth > 0)) {
         ctx->trace_depth -= 1;
     }
     
-    struct tracer_thread_context_frame_t *frame = &ctx->frames[current_depth];
+    struct tracer_thread_context_frame_t *frame = &ctx->frames[stack_depth_on_entry];
     return frame->lr;
 }
 
