@@ -43,8 +43,8 @@ L_fast_path:
     add sp, sp, #208
     .cfi_def_cfa_offset 0
 
-    adrp x16, _original_objc_msgSend@PAGE
-    add x16, x16, _original_objc_msgSend@PAGEOFF
+    adrp x16, _g_original_objc_msgSend@PAGE
+    add x16, x16, _g_original_objc_msgSend@PAGEOFF
     ldr x16, [x16]
 
     br x16
@@ -65,8 +65,8 @@ L_trace:
     add sp, sp, #208
     .cfi_def_cfa_offset 0
 
-    adrp x16, _original_objc_msgSend@PAGE
-    add x16, x16, _original_objc_msgSend@PAGEOFF
+    adrp x16, _g_original_objc_msgSend@PAGE
+    add x16, x16, _g_original_objc_msgSend@PAGEOFF
     ldr x16, [x16]
     blr x16
 

@@ -7,6 +7,6 @@
 
 #include "tracer_internal.h"
 
-extern void (*original_objc_msgSend)(void);
+extern void (*g_original_objc_msgSend)(void);
 
 tracer_result_t init_message_interception(tracer_t *tracer);

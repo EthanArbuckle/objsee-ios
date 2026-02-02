@@ -64,4 +64,4 @@ L_offset_fast:
 .section __DATA,__data
 .align 2
 L_data_ptr:
-    .long _original_objc_msgSend
+    .long _g_original_objc_msgSend

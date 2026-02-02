@@ -24,7 +24,7 @@
 
 extern void new_objc_msgSend(void);
 
-void *original_objc_msgSend = NULL;
+void *g_original_objc_msgSend = NULL;
 // TODO: remove
 static tracer_t *g_tracer_ctx = NULL;
 
@@ -271,14 +271,14 @@ uintptr_t post_objc_msgSend_callback(void) {
 }
 
 static void *get_original_objc_msgSend(void) {
-    if (original_objc_msgSend == NULL) {
-        original_objc_msgSend = dlsym(RTLD_DEFAULT, "objc_msgSend");
-        if (original_objc_msgSend == NULL) {
+    if (g_original_objc_msgSend == NULL) {
+        g_original_objc_msgSend = dlsym(RTLD_DEFAULT, "objc_msgSend");
+        if (g_original_objc_msgSend == NULL) {
             tracer_set_error(g_tracer_ctx, "Failed to locate objc_msgSend");;
         }
     }
     
-    return original_objc_msgSend;
+    return g_original_objc_msgSend;
 }
 
 tracer_result_t init_message_interception(tracer_t *tracer) {
@@ -294,8 +294,8 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
     
     g_tracer_ctx = tracer;
     
-    original_objc_msgSend = get_original_objc_msgSend();
-    if (original_objc_msgSend == NULL) {
+    g_original_objc_msgSend = get_original_objc_msgSend();
+    if (g_original_objc_msgSend == NULL) {
         tracer_set_error(g_tracer_ctx, "Failed to locate objc_msgSend");
         return TRACER_ERROR_INITIALIZATION;
     }

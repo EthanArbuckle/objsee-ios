@@ -65,7 +65,7 @@ static bool is_kind_of_class(id object, Class cls) {
         return true;
     }
 #else
-    if (((bool (*)(id, SEL, Class))original_objc_msgSend)(object, sel_isKindOfClass, cls)) {
+    if (((bool (*)(id, SEL, Class))g_original_objc_msgSend)(object, sel_isKindOfClass, cls)) {
         return true;
     }
 #endif
@@ -119,7 +119,7 @@ static const char *copy_objc_object_description(void *address, Class obj_class) 
         return NULL;
     }
     
-    const char *utf8String = ((const char * (*)(id, SEL))original_objc_msgSend)(descriptionString, sel_UTF8String);
+    const char *utf8String = ((const char * (*)(id, SEL))g_original_objc_msgSend)(descriptionString, sel_UTF8String);
     if (utf8String == NULL) {
         return NULL;
     }
