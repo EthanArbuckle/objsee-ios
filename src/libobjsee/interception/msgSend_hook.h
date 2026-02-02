@@ -9,6 +9,4 @@
 
 extern void (*original_objc_msgSend)(void);
 
-void *get_original_objc_msgSend(void);
-
 tracer_result_t init_message_interception(tracer_t *tracer);

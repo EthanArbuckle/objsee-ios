@@ -11,6 +11,7 @@
 #include <dlfcn.h>
 #include "selector_deny_list.h"
 #include "class_name_cache.h"
+#include "mshookfunction.h"
 #include "event_handler.h"
 #include "objc-internal.h"
 #include "arg_capture.h"
@@ -284,7 +285,7 @@ uintptr_t post_objc_msgSend_callback(void) {
     return frame->lr;
 }
 
-void *get_original_objc_msgSend(void) {
+static void *get_original_objc_msgSend(void) {
     if (original_objc_msgSend == NULL) {
         original_objc_msgSend = dlsym(RTLD_DEFAULT, "objc_msgSend");
         if (original_objc_msgSend == NULL) {
@@ -325,33 +326,19 @@ tracer_result_t init_message_interception(tracer_t *tracer) {
         free(rebinding);
     }
     else {
-        // Hook objc_msgSend using a jailbreak hooking library
-        const char *possible_lib_paths[3] = {
-            "/var/jb/usr/lib/libsubstrate.dylib",
-            "/usr/lib/libsubstrate.dylib",
-            "/cores/binpack/usr/lib/libellekit.dylib"
-        };
+            kern_return_t ret = objsee_MSHookFunction(objc_msgSend_dlsym, new_objc_msgSend, (void **)&original_objc_msgSend);
+            if (ret != KERN_SUCCESS) {
+                tracer_set_error(g_tracer_ctx, "Failed to hook objc_msgSend using MSHookFunction");
+                return TRACER_ERROR_INITIALIZATION;
+            }
         
-        void *jbhooker_handle = NULL;
-        for (size_t i = 0; i < sizeof(possible_lib_paths) / sizeof(possible_lib_paths[0]); i++) {
-            jbhooker_handle = dlopen(possible_lib_paths[i], RTLD_LAZY);
-            if (jbhooker_handle != NULL) {
-                break;
             }
         }
         
-        if (jbhooker_handle == NULL) {
-            tracer_set_error(g_tracer_ctx, "Failed to find or load jailbreak hooker library");
-            return TRACER_ERROR_INITIALIZATION;
         }
         
-        void *_MSHookFunction = dlsym(jbhooker_handle, "MSHookFunction");
-        if (_MSHookFunction == NULL) {
-            tracer_set_error(g_tracer_ctx, "Failed to locate MSHookFunction in jailbreak hooker library");
-            return TRACER_ERROR_INITIALIZATION;
         }
         
-        ((void (*)(void *, void *, void **))_MSHookFunction)(original_objc_msgSend, new_objc_msgSend, (void **)&original_objc_msgSend);
     }
 
     return TRACER_SUCCESS;
