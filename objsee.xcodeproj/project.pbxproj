@@ -87,6 +87,8 @@
 		5FCA2A4B2CFD910D00D7BB08 /* color_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FCA2A452CFD910D00D7BB08 /* color_utils.c */; };
 		5FCA2A4C2CFD910D00D7BB08 /* format.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FCA2A472CFD910D00D7BB08 /* format.c */; };
 		5FCA2A4D2CFD910D00D7BB08 /* color_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FCA2A442CFD910D00D7BB08 /* color_utils.h */; };
+		5FE219B52F3056320072B458 /* watchdog.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FE219B32F3056320072B458 /* watchdog.m */; };
+		5FE219B62F3056320072B458 /* watchdog.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FE219B32F3056320072B458 /* watchdog.m */; };
 		5FF45BD72D333EBF0073F42E /* encoding_size.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FF45BCD2D333EBF0073F42E /* encoding_size.h */; };
 		5FF45BD92D333EBF0073F42E /* encoding_description.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FF45BD12D333EBF0073F42E /* encoding_description.h */; };
 		5FF45BDA2D333EBF0073F42E /* encoding_size.h in Headers */ = {isa = PBXBuildFile; fileRef = 5FF45BCD2D333EBF0073F42E /* encoding_size.h */; };
@@ -238,6 +240,7 @@
 		5FCA2A452CFD910D00D7BB08 /* color_utils.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = color_utils.c; sourceTree = "<group>"; };
 		5FCA2A462CFD910D00D7BB08 /* format.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = format.h; sourceTree = "<group>"; };
 		5FCA2A472CFD910D00D7BB08 /* format.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = format.c; sourceTree = "<group>"; };
+		5FE219B32F3056320072B458 /* watchdog.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = watchdog.m; sourceTree = "<group>"; };
 		5FF45BCD2D333EBF0073F42E /* encoding_size.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = encoding_size.h; sourceTree = "<group>"; };
 		5FF45BCE2D333EBF0073F42E /* encoding_size.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = encoding_size.c; sourceTree = "<group>"; };
 		5FF45BCF2D333EBF0073F42E /* blocks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = blocks.h; sourceTree = "<group>"; };
@@ -368,6 +371,7 @@
 		5FAF157C2C7E4CA100E10412 /* src/libobjsee */ = {
 			isa = PBXGroup;
 			children = (
+				5FE219B42F3056320072B458 /* springboard */,
 				5FF45BD32D333EBF0073F42E /* type_decoding */,
 				5F5AC4752D1B1B85000577D3 /* injection */,
 				5FCA2A3E2CFD910700D7BB08 /* config */,
@@ -466,6 +470,14 @@
 				5FCA2A472CFD910D00D7BB08 /* format.c */,
 			);
 			path = formatting;
+			sourceTree = "<group>";
+		};
+		5FE219B42F3056320072B458 /* springboard */ = {
+			isa = PBXGroup;
+			children = (
+				5FE219B32F3056320072B458 /* watchdog.m */,
+			);
+			path = springboard;
 			sourceTree = "<group>";
 		};
 		5FF45BD32D333EBF0073F42E /* type_decoding */ = {
@@ -823,6 +835,7 @@
 				5FBAC0592D4FBA1300AF19D8 /* arg_capture.c in Sources */,
 				5F9EE5B22D5734F400A32B14 /* arg_description.c in Sources */,
 				5FCA29D32CFC4BC300D7BB08 /* tracer_core.c in Sources */,
+				5FE219B52F3056320072B458 /* watchdog.m in Sources */,
 				5F9EE5AB2D5729E700A32B14 /* objc_arg_description.c in Sources */,
 				5FCA29C82CFC497300D7BB08 /* transport.c in Sources */,
 				5FF58D852D05B84A007F5000 /* msgSend_hook.c in Sources */,
@@ -890,6 +903,7 @@
 				5F9EE6202D594B4800A32B14 /* SelectorDenyListTests.m in Sources */,
 				5FF45C0B2D333F980073F42E /* StructDecoderTests.m in Sources */,
 				5FF45BE12D333EBF0073F42E /* encoding_description.c in Sources */,
+				5FE219B62F3056320072B458 /* watchdog.m in Sources */,
 				5F9EE62C2D597C9D00A32B14 /* symbolication.c in Sources */,
 				5FF45BE22D333EBF0073F42E /* encoding_size.c in Sources */,
 			);

@@ -103,6 +103,33 @@ static kern_return_t locate_objsee_library(void) {
     return KERN_FAILURE;
 }
 
+static kern_return_t setup_springboard_watchdog_policy_hook(void) {
+    pid_t springboard_pid = pid_from_hint("SpringBoard");
+    if (springboard_pid <= 0) {
+        printf("SpringBoard not running?\n");
+        return KERN_FAILURE;
+    }
+    
+    if (remote_dlopen(springboard_pid, OBJSEE_LIBRARY_PATH, RTLD_NOW) != KERN_SUCCESS) {
+        printf("Failed to inject libobjsee into SpringBoard\n");
+        return KERN_FAILURE;
+    }
+    
+    mach_port_t springboard_task = get_task_for_pid(springboard_pid);
+    if (springboard_task == MACH_PORT_NULL) {
+        printf("Failed to get task for SpringBoard\n");
+        return KERN_FAILURE;
+    }
+
+    mach_vm_address_t setup_watchdog_hook_addr = remote_dlsym(springboard_pid, "libobjsee", "setup_objsee_watchdog_policy_hook");
+    if (setup_watchdog_hook_addr == 0) {
+        printf("Failed to locate setup_objsee_watchdog_policy_hook in SpringBoard\n");
+        return KERN_FAILURE;
+    }
+    
+    return call_remote_function_with_string(springboard_task, setup_watchdog_hook_addr, 0, 0);
+}
+
 int main(int argc, char *argv[]) {
     dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices", 9);
 
@@ -140,7 +167,7 @@ int main(int argc, char *argv[]) {
             // TUI mode requires some overrrides
             config.format.include_colors = false;
             config.format.output_as_json = true;
-            config.format.include_indents = false;
+            config.format.include_indents = true;
             config.format.include_event_json = true;
             config.format.include_formatted_trace = true;
             config.format.include_thread_id = false;
@@ -202,28 +229,28 @@ int main(int argc, char *argv[]) {
             }
             
             // If attaching to an existing pid:
-            // 1. Inject the library dylib into the running process
-            // 2. Lookup the address of the entry point function objsee_remote_entrypoint()
-            // 3. Call the entry point function with the encoded config string as an argument
+            // 1. Attempt to lookup the address of libobjsee's entrypoint function in the running process. If the library is already loaded, skip to step 4.
+            // 2. If the library is not already loaded (entrypoint lookup failed), perform dylib injection.
+            // 3. Repeat step 1 to find the entrypoint address now that the library should be loaded.
+            // 4. Call the entry point function with the encoded config string as an argument.
             
-            // This is not immediately checked for success because, more important than the injection itself, is whether
-            // or not libobjsee exists in the target process. If libobjsee is loaded in the target process despite
-            // this injection step failing, there's no problem and tracing should proceed
-            kern_return_t inject_result = remote_dlopen(target->pid, OBJSEE_LIBRARY_PATH, RTLD_NOW);
-  
             // Find the address of libobjsee's objsee_remote_entrypoint() function in the running process
             mach_vm_address_t objsee_remote_entrypoint_addr = remote_dlsym(target->pid, "libobjsee", "objsee_remote_entrypoint");
-            if (objsee_remote_entrypoint_addr == 0 || objsee_remote_entrypoint_addr == (uint64_t)-1) {
-                // Symbol wasn't found
-                if (inject_result != KERN_SUCCESS) {
-                    printf("Failed to inject %s into process with PID %d\n", OBJSEE_LIBRARY_PATH, target->pid);
-                }
-                else {
-                    printf("Injected %s into process with PID %d, but failed to find objsee_remote_entrypoint() symbol\n", OBJSEE_LIBRARY_PATH, target->pid);
+            if (objsee_remote_entrypoint_addr == 0) {
+                // Library not already loaded -- inject it
+                if (remote_dlopen(target->pid, OBJSEE_LIBRARY_PATH, RTLD_NOW) != KERN_SUCCESS) {
+                    printf("Failed to inject %s into process %d\n", OBJSEE_LIBRARY_PATH, target->pid);
+                    free((void *)encoded_config);
+                    return 1;
                 }
                 
-                free((void *)encoded_config);
-                return 1;
+                // Try to find the entrypoint address again
+                objsee_remote_entrypoint_addr = remote_dlsym(target->pid, "libobjsee", "objsee_remote_entrypoint");
+                if (objsee_remote_entrypoint_addr == 0) {
+                    printf("Failed to locate objsee_remote_entrypoint() in process %d after injection\n", target->pid);
+                    free((void *)encoded_config);
+                    return 1;
+                }
             }
 
             // Invoke entry point with the encoded config
@@ -294,6 +321,10 @@ int main(int argc, char *argv[]) {
                     printf("Failed to get launched app PID\n");
                     free((void *)encoded_config);
                     return 1;
+                }
+                
+                if (setup_springboard_watchdog_policy_hook() != KERN_SUCCESS) {
+                    printf("Warning: Failed to setup SpringBoard watchdog policy hook\n");
                 }
             }
         }
