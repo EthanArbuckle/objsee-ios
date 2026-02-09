@@ -89,6 +89,11 @@ int parse_cli_arguments(int argc, char *argv[], cli_options_t *options, tracer_c
             continue;
         }
         
+        if (strcmp(argv[i], "--caller") == 0) {
+            config->format.include_caller_info = true;
+            continue;
+        }
+        
         // arg verbosity: -A0, -A1, -A2, -A3
         if (argv[i][0] == '-' && argv[i][1] == 'A' && argv[i][2] >= '0' && argv[i][2] <= '3') {
             config->format.args = argv[i][2] - '0';
@@ -217,7 +222,7 @@ int apply_defaults_to_config(tracer_config_t *config) {
     config->format = (tracer_format_options_t){
         .include_formatted_trace = true,
         .include_event_json = false,
-        .output_as_json = false,
+        .output_as_json = true,
         .include_colors = true,
         .include_thread_id = true,
         .include_indents = true,

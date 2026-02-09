@@ -239,7 +239,7 @@ const char *_do_format(char **inptr, const char *end, const char *class_name, ch
     if (format.include_caller_info) {
         const char *caller_class = event->caller.class_name ? event->caller.class_name : "<unknown>";
         const char *caller_method = event->caller.method_name ? event->caller.method_name : "<unknown>";
-        if (fast_append(&ptr, end, " <caller: %s[%s %s]>\n", event->is_class_method ? "+" : "-", caller_class, caller_method) != KERN_SUCCESS) {
+        if (fast_append(&ptr, end, " <caller: %s[%s %s]>", event->is_class_method ? "+" : "-", caller_class, caller_method) != KERN_SUCCESS) {
             return NULL;
         }
     }

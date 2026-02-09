@@ -55,7 +55,8 @@ static void print_usage(void) {
     printf("\033[1m\033[33mADVANCED OPTIONS\033[0m\n");
     printf("    \033[36m-d\033[0m \033[32m<delay>\033[0m       \033[90m│\033[0m Tracer init delay in ms \033[90m(default: 0)\033[0m\n");
     printf("    \033[36m-R\033[0m               \033[90m│\033[0m Use symbol rebinding \033[90m(vs MSHookFunction)\033[0m\n");
-    printf("    \033[36m--nocolor\033[0m        \033[90m│\033[0m Disable colored output\n\n");
+    printf("    \033[36m--nocolor\033[0m        \033[90m│\033[0m Disable colored output\n");
+    printf("    \033[36m--caller\033[0m         \033[90m│\033[0m Include caller info\n\n");
     
     printf("\033[1m\033[33mSYSTEM\033[0m\n");
     printf("    \033[36m-h\033[0m, \033[36m--help\033[0m       \033[90m│\033[0m Show this help message\n");
