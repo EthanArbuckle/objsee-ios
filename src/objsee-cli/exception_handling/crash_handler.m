@@ -375,7 +375,7 @@ static void print_backtrace(const arm_thread_state64_t *thread_state) {
             continue;
         }
         
-        CSSymbolRef symbol = get_symbol_at_address(g_state.symbolicator, frame_address);
+        CSSymbolRef symbol = get_symbol_at_address(symbol_owner, frame_address);
         if (cs_isnull(symbol)) {
             continue;
         }
