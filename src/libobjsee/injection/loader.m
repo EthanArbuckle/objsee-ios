@@ -10,6 +10,7 @@
 #include <dlfcn.h>
 #include "config_decode.h"
 #include "logging.h"
+#include "description_hook.h"
 
 OBJC_EXPORT void objsee_main(const char *encoded_config_string, bool from_dyld_insert);
 static bool determine_if_from_dyld_insert(const char *dyld_insert_libraries);
@@ -136,6 +137,8 @@ void objsee_main(const char *encoded_config_string, bool from_dyld_insert) {
         objsee_log("libobjsee config: %s", config_description);
         free((void *)config_description);
     }
+    
+    install_description_hook();
     
     DELAY_WRAPPED(config.tracer_delay_ms, ^{
         

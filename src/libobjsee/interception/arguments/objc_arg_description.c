@@ -68,42 +68,8 @@ static bool is_kind_of_class(id object, Class cls) {
     return false;
 }
 
-static bool should_object_be_skipped(id object) {
-     // Calling -description on these classes will cause a crash
-    /*
-     Thread 2 Crashed:
-     0   libsystem_platform.dylib       0x1e7b83584          _os_unfair_lock_recursive_abort + 36
-     1   libsystem_platform.dylib       0x1e7b82894          _os_unfair_lock_lock_slow + 336
-     2   CoreFoundation                 0x189d396dc          -[CFPrefsSource description] + 76
-     3   libobjsee                      0x1045b5ef4          build_objc_description_for_object + 140
-     4   libobjsee                      0x1045b5c00          lookup_description_for_address + 248
-     5   libobjsee                      0x1045b3ba4          _description_for_id + 924
-     6   libobjsee                      0x1045b3424          description_for_argument + 372
-     7   libobjsee                      0x1045b271c          capture_arguments + 2604
-     8   libobjsee                      0x1045b7ce0          pre_objc_msgSend_callback + 1456
-     9   libobjsee                      0x1045c36f4          new_objc_msgSend + 52
-     */
-    static Class CFPrefsSearchListSource = NULL;
-    static Class CFPrefsSource = NULL;
-
-    if (CFPrefsSearchListSource == NULL) {
-        CFPrefsSearchListSource = objc_getClass("CFPrefsSearchListSource");
-        CFPrefsSource = objc_getClass("CFPrefsSource");
-    }
-    
-    if (is_kind_of_class(object, CFPrefsSearchListSource) || is_kind_of_class(object, CFPrefsSource)) {
-        return true;
-    }
-
-    return false;
-}
-
 static const char *copy_objc_object_description(void *address, Class obj_class) {
     id object = (id)address;
-//    if (should_object_be_skipped(object)) {
-//        return NULL;
-//    }
-    
     id description = ((id (*)(id, SEL))g_original_objc_msgSend)(object, sel_description);
     if (description == NULL) {
         return NULL;
