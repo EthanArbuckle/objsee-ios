@@ -45,4 +45,5 @@ void install_description_hook(void) {
     install_description_hook_for_class(objc_getClass("CFPrefsSearchListSource"));
     install_description_hook_for_class(objc_getClass("CFPrefsSource"));
     install_description_hook_for_class(objc_getClass("BSServiceConnection"));
+    install_description_hook_for_class(objc_getClass("NSISVariable"));
 }
