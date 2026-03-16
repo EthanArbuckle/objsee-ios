@@ -324,9 +324,9 @@ int main(int argc, char *argv[]) {
                     return 1;
                 }
                 
-                if (setup_springboard_watchdog_policy_hook() != KERN_SUCCESS) {
-                    printf("Warning: Failed to setup SpringBoard watchdog policy hook\n");
-                }
+                // if (setup_springboard_watchdog_policy_hook() != KERN_SUCCESS) {
+                //     printf("Warning: Failed to setup SpringBoard watchdog policy hook\n");
+                // }
             }
         }
         
